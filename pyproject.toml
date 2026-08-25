@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aipr"
+version = "0.1.0"
+description = "Read a repository's AI contribution policy before you (or your agent) contribute."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Yunare Maia", email = "yunare@gmail.com" }]
+keywords = ["ai-policy", "open-source", "contributing", "cli", "agents"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Version Control :: Git",
+]
+dependencies = []
+
+[project.scripts]
+aipr = "aipr.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/yunaremaia/aipr"
+
+[tool.setuptools.packages.find]
+where = ["src"]
