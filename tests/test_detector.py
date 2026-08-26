@@ -84,3 +84,16 @@ def test_evidence_always_present_when_not_unknown():
 def test_verdicts_are_distinct():
     values = {v.value for v in Verdict}
     assert {"human_only", "restrictive", "disclose_ok", "permissive", "unknown"} <= values
+
+OPENHUMAN_GUIDE = """
+## Optional — Let an AI coding agent guide you
+If you use Claude Code, Cursor, AmpCode, Codex, or another coding agent, you can paste this prompt after cloning the repo:
+AGENTS.md: https://raw.githubusercontent.com/tinyhumansai/openhuman/main/AGENTS.md
+CLAUDE.md: https://raw.githubusercontent.com/tinyhumansai/openhuman/main/CLAUDE.md
+"""
+
+def test_openhuman_agent_guide_is_permissive():
+    p = detect_policy(OPENHUMAN_GUIDE)
+    assert p.verdict is Verdict.PERMISSIVE
+    assert p.autonomous_safe is True
+    assert p.score <= -3.0

@@ -53,6 +53,10 @@ RULES: list[tuple[re.Pattern[str], float]] = [
     (re.compile(r"we\s+(?:warmly\s+)?welcome\s+ai[- ](?:assisted|generated)", re.I), -3.5),
     (re.compile(r"feel\s+free\s+to\s+use\s+(?:claude|copilot|chatgpt|llms?|ai\s+tools)", re.I), -3.0),
     (re.compile(r"agents?\s+are\s+welcome", re.I), -3.0),
+    # --- permissive (agent-guide patterns seen in the wild: openhuman etc.) ---
+    (re.compile(r"let\s+an\s+ai\s+coding\s+agent\s+guide\s+you", re.I), -3.0),
+    (re.compile(r"if\s+you\s+use\s+(?:claude\s+code|cursor|ampcode|codex).*?coding\s+agent", re.I | re.S), -3.0),
+    (re.compile(r"paste\s+this\s+prompt.*?(?:agents\.md|claude\.md)", re.I | re.S), -2.5),
 ]
 
 RESTRICTIVE_THRESHOLD = 2.0
