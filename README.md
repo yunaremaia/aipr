@@ -77,6 +77,10 @@ Batch mode: `aipr owner/repo1 owner/repo2 ...` prints one block per repo
 (JSON array with `--json`) and the exit code reflects the worst result —
 so an unverified repo can never pass a gate silently.
 
+Policy fetches are cached on disk for 24h (`~/.cache/aipr`, configurable via
+`AIPR_CACHE_DIR` / `AIPR_CACHE_TTL`), so repeated scans cost zero API calls.
+Use `--no-cache` to force a fresh fetch.
+
 ## How classification works
 
 Weighted regex matching over concatenated governance text. Restrictive phrases

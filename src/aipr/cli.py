@@ -40,6 +40,57 @@ EXIT_UNSAFE = 1
 EXIT_UNKNOWN = 2
 EXIT_USAGE = 64
 
+# --- on-disk cache ----------------------------------------------------------
+# Each governance file fetch is cached under AIPR_CACHE_DIR (default:
+# ~/.cache/aipr) with a TTL (AIPR_CACHE_TTL seconds, default 86400 = 24h).
+# The cron scans ~10 repos/day and each repo costs up to 11 API calls; the
+# cache keeps repeat scans free of charge. --no-cache bypasses it entirely.
+
+import os
+import time
+from pathlib import Path as _Path
+
+
+def _cache_dir() -> _Path:
+    return _Path(os.environ.get("AIPR_CACHE_DIR", str(_Path.home() / ".cache" / "aipr")))
+
+
+def _cache_ttl() -> int:
+    try:
+        return int(os.environ.get("AIPR_CACHE_TTL", "86400"))
+    except ValueError:
+        return 86400
+
+
+def clear_cache() -> None:
+    """Delete every cached policy entry."""
+    d = _cache_dir()
+    if d.exists():
+        for f in d.glob("*.json"):
+            f.unlink(missing_ok=True)
+
+
+def _cache_get(key: str):
+    path = _cache_dir() / f"{key}.json"
+    try:
+        entry = json.loads(path.read_text())
+        if time.time() - entry["ts"] <= _cache_ttl():
+            return entry["files"]
+        path.unlink(missing_ok=True)
+    except Exception:
+        pass
+    return None
+
+
+def _cache_put(key: str, files: list) -> None:
+    d = _cache_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    path = d / f"{key}.json"
+    try:
+        path.write_text(json.dumps({"ts": time.time(), "files": files}))
+    except OSError:
+        pass
+
 
 def _fetch_gh(url: str) -> str | None:
     """Fetch raw content via the GitHub API (honors GH_TOKEN; no hard dep on gh)."""
@@ -56,8 +107,14 @@ def _fetch_gh(url: str) -> str | None:
         return None
 
 
-def fetch_policy_text(repo: str) -> list[tuple[str, str]]:
+def fetch_policy_text(repo: str, use_cache: bool = True) -> list[tuple[str, str]]:
     """Return [(filename, text), ...] for every candidate file found in owner/repo."""
+    key = repo.replace("/", "__")
+    if use_cache:
+        cached = _cache_get(key)
+        if cached is not None:
+            return [(name, text) for name, text in cached]
+
     results: list[tuple[str, str]] = []
     for name in CANDIDATE_FILES:
         text = _fetch_gh(f"https://api.github.com/repos/{repo}/contents/{name}")
@@ -70,12 +127,14 @@ def fetch_policy_text(repo: str) -> list[tuple[str, str]]:
             if text and text.strip():
                 results.append((f"{org}/.github/{name}", text))
                 break
+    if use_cache:
+        _cache_put(key, [(name, text) for name, text in results])
     return results
 
 
-def classify_repo(repo: str) -> dict:
+def classify_repo(repo: str, use_cache: bool = True) -> dict:
     """Fetch + classify all governance files of one repository."""
-    files = fetch_policy_text(repo)
+    files = fetch_policy_text(repo, use_cache=use_cache)
     if not files:
         return {"repo": repo, "verdict": Verdict.UNKNOWN.value, "files": [],
                 "autonomous_safe": False, "confidence": 0.0, "score": 0.0}
@@ -101,6 +160,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("repo", nargs="*", help="owner/repo to inspect (accepts several for batch)")
     parser.add_argument("--text", metavar="FILE", help="classify a local file instead")
     parser.add_argument("--json", action="store_true", dest="as_json", help="JSON output")
+    parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        dest="no_cache",
+        help="fetch fresh policy files even if a cached copy exists",
+    )
 
     args = parser.parse_args(argv)
     if not args.repo and not args.text:
@@ -128,7 +193,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # Batch mode: classify every repo, aggregate the exit code, and emit either
     # a JSON array or a per-repo human-readable block.
-    results = [classify_repo(repo) for repo in args.repo]
+    results = [classify_repo(repo, use_cache=not args.no_cache) for repo in args.repo]
 
     def _exit_code(r: dict) -> int:
         if r["verdict"] == Verdict.UNKNOWN.value:

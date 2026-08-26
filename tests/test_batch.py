@@ -12,7 +12,7 @@ def _fake_gh(url):
 
 
 def test_batch_mode_multiple_repos(capsys):
-    with patch("aipr.cli.fetch_policy_text", side_effect=lambda repo: [("CONTRIBUTING.md", _fake_gh(""))]):
+    with patch("aipr.cli.fetch_policy_text", side_effect=lambda repo, use_cache=True: [("CONTRIBUTING.md", _fake_gh(""))]):
         code = main(["a/c1", "b/c2", "--json"])
     out = json.loads(capsys.readouterr().out)
     assert isinstance(out, list)
@@ -29,7 +29,7 @@ def test_batch_mixed_verdicts_exit_code(tmp_path, capsys):
         "bad/repo": [("CONTRIBUTING.md", "AI should never be the main author of the PR.")],
         "meh/repo": [("CONTRIBUTING.md", "Just a README, no AI mention.")],
     }
-    with patch("aipr.cli.fetch_policy_text", side_effect=lambda repo: policies.get(repo, [])):
+    with patch("aipr.cli.fetch_policy_text", side_effect=lambda repo, use_cache=True: policies.get(repo, [])):
         code = main(list(policies) + ["--json"])
     out = json.loads(capsys.readouterr().out)
     verdicts = {r["repo"]: r["verdict"] for r in out}

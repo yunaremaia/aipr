@@ -1,3 +1,3 @@
 """aipr: read an open-source repository's AI contribution policy."""
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
