@@ -98,7 +98,7 @@ def main(argv: list[str] | None = None) -> int:
         prog="aipr",
         description="Read a repository's AI contribution policy before contributing.",
     )
-    parser.add_argument("repo", nargs="?", help="owner/repo to inspect")
+    parser.add_argument("repo", nargs="*", help="owner/repo to inspect (accepts several for batch)")
     parser.add_argument("--text", metavar="FILE", help="classify a local file instead")
     parser.add_argument("--json", action="store_true", dest="as_json", help="JSON output")
 
@@ -108,6 +108,8 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_USAGE
 
     if args.text:
+        if len(args.repo) > 1:
+            parser.error("--text cannot be combined with multiple repos")
         text = Path(args.text).read_text(encoding="utf-8", errors="replace")
         result = detect_policy(text)
         payload = {
@@ -124,13 +126,25 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(payload, indent=2) if args.as_json else _render(payload))
         return exit_code
 
-    result = classify_repo(args.repo)
-    if result["verdict"] == Verdict.UNKNOWN.value:
-        exit_code = EXIT_UNKNOWN
+    # Batch mode: classify every repo, aggregate the exit code, and emit either
+    # a JSON array or a per-repo human-readable block.
+    results = [classify_repo(repo) for repo in args.repo]
+
+    def _exit_code(r: dict) -> int:
+        if r["verdict"] == Verdict.UNKNOWN.value:
+            return EXIT_UNKNOWN
+        return EXIT_OK if r["autonomous_safe"] else EXIT_UNSAFE
+
+    worst = max(_exit_code(r) for r in results)
+
+    if args.as_json:
+        print(json.dumps(results if len(results) > 1 else results[0], indent=2))
     else:
-        exit_code = EXIT_OK if result["autonomous_safe"] else EXIT_UNSAFE
-    print(json.dumps(result, indent=2) if args.as_json else _render(result))
-    return exit_code
+        for i, r in enumerate(results):
+            if i:
+                print()
+            print(_render(r))
+    return worst
 
 
 def _render(payload: dict) -> str:

@@ -68,10 +68,14 @@ required by policy*, not *no obligations*.
 
 | Code | Meaning |
 |---|---|
-| 0 | autonomous-safe verdict |
-| 1 | restricted or human-only |
-| 2 | unknown / no policy found |
+| 0 | all inspected repos are autonomous-safe |
+| 1 | at least one repo is restricted or human-only |
+| 2 | at least one repo is unknown / no policy found (ranks worse than 1) |
 | 64 | usage error |
+
+Batch mode: `aipr owner/repo1 owner/repo2 ...` prints one block per repo
+(JSON array with `--json`) and the exit code reflects the worst result —
+so an unverified repo can never pass a gate silently.
 
 ## How classification works
 
