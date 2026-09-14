@@ -52,6 +52,19 @@ aipr --json OWNER/REPO     # machine-readable output
 aipr --sarif OWNER/REPO    # SARIF 2.1.0 output for GitHub Code Scanning
 ```
 
+### `init` — scaffold AI policy files
+
+Generate `AI_POLICY.md` and `AI_TOOL_POLICY.md` in your repo:
+
+```bash
+aipr init [--dir .] [--type disclose|permissive|human_only] [--org ORG]
+```
+
+Presets:
+- `permissive` — explicitly welcomes AI-assisted contributions (aipr-safe)
+- `disclose_ok` (default) — allowed with `Assisted-by: AI` disclosure trailer
+- `human_only` — AI must not be the main author (NOT autonomous-safe)
+
 ### Verdicts
 
 | Verdict | Meaning | Autonomous-safe? |
