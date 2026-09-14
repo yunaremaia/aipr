@@ -36,14 +36,22 @@ their quota.
 ## Install
 
 ```bash
+# Standalone
 pip install git+https://github.com/yunaremaia/aipr.git
 # requires Python 3.10+; GH_TOKEN recommended (anonymous API calls rate-limit fast)
 export GH_TOKEN=ghp_xxx   # classic token with public repo read access
+
+# As a GitHub CLI extension (recommended)
+gh extension install yunaremaia/aipr
 ```
+
+The `gh extension install` method is the easiest — after install, `gh aipr OWNER/REPO` works immediately.
 
 No dependencies beyond the standard library. `pytest` only to develop.
 
 ## Usage
+
+### Standalone
 
 ```bash
 aipr OWNER/REPO            # classify a GitHub repository
@@ -51,6 +59,19 @@ aipr --text FILE           # classify a local governance file
 aipr --json OWNER/REPO     # machine-readable output
 aipr --sarif OWNER/REPO    # SARIF 2.1.0 output for GitHub Code Scanning
 ```
+
+### As a GitHub CLI extension
+
+After `gh extension install yunaremaia/aipr`, use `gh aipr` identically:
+
+```bash
+gh aipr OWNER/REPO
+gh aipr --json OWNER/REPO
+gh aipr --sarif OWNER/REPO
+gh aipr --text FILE
+```
+
+Exit codes are preserved (0/1/2) for CI conditionals.
 
 ### `init` — scaffold AI policy files
 
