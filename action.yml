@@ -1,0 +1,54 @@
+name: 'aipr — AI Policy Read'
+description: 'Check a repository AI contribution policy before contributing'
+inputs:
+  repo:
+    description: 'OWNER/REPO to check (e.g., asciimoo/hister)'
+    required: true
+  fail-on-unknown:
+    description: 'Treat UNKNOWN policy as failure (exit 2)'
+    required: false
+    default: 'false'
+  cache-ttl:
+    description: 'Cache TTL in hours (default 24)'
+    required: false
+    default: '24'
+  token:
+    description: 'GitHub token for private repos or higher rate limits'
+    required: false
+    default: ''
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.12'
+    - name: Install aipr
+      run: pip install "aipr>=0.1.0"
+      shell: bash
+    - name: Check AI policy
+      id: aipr-check
+      run: |
+        aipr --json "${{ inputs.repo }}" > /tmp/aipr_output.json
+        EXIT_CODE=$?
+        cat /tmp/aipr_output.json
+        if [ $EXIT_CODE -ne 0 ]; then
+          if [ "${{ inputs.fail-on-unknown }}" = "true" ] && grep -q '"unknown"' /tmp/aipr_output.json; then
+            echo "::error::aipr policy check failed for ${{ inputs.repo }} (unknown policy treated as failure)"
+            exit 1
+          fi
+          if grep -q '"human_only"\|"blocked"' /tmp/aipr_output.json; then
+            echo "::error::Repository blocks AI contributions: ${{ inputs.repo }}"
+            exit 1
+          fi
+        fi
+        echo "result=$(cat /tmp/aipr_output.json)" >> $GITHUB_OUTPUT
+        exit 0
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        AIPR_CACHE_TTL: ${{ inputs.cache-ttl }}
+
+outputs:
+  result:
+    description: 'The raw JSON output from aipr'
+    value: ${{ steps.aipr-check.outputs.result }}
