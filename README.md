@@ -49,6 +49,7 @@ No dependencies beyond the standard library. `pytest` only to develop.
 aipr OWNER/REPO            # classify a GitHub repository
 aipr --text FILE           # classify a local governance file
 aipr --json OWNER/REPO     # machine-readable output
+aipr --sarif OWNER/REPO    # SARIF 2.1.0 output for GitHub Code Scanning
 ```
 
 ### Verdicts
@@ -92,6 +93,49 @@ not send a bot.
 Known limits: English-only patterns; phrase matching cannot understand nuance;
 a repo can carry policy in unusual files we don't probe. Treat UNKNOWN as
 "read it yourself".
+
+## CI/CD integration (SARIF)
+
+Use `--sarif` to output SARIF 2.1.0 (Static Analysis Results Interchange Format)
+and upload to GitHub Code Scanning. This surfaces AI policy compliance as
+alerts in the GitHub Security tab.
+
+```bash
+# Generate SARIF output
+aipr --sarif OWNER/REPO > aipr-results.sarif
+# Upload to GitHub Code Scanning via GitHub Actions:
+#   github/codeql-action/upload-sarif with sarif_file: aipr-results.sarif
+```
+
+Verdict mapping to SARIF levels:
+- `human_only` / `restrictive` → `error` (blocks contribution)
+- `unknown` → `warning` (needs manual review)
+- `permissive` / `disclose_ok` → `note` (safe to proceed)
+
+Example GitHub Actions workflow snippet:
+
+```yaml
+name: AI Policy Check
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  aipr-check:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install git+https://github.com/yunaremaia/aipr.git
+      - run: aipr --sarif ${{ github.event.pull_request.head.repo.full_name }} > aipr-results.sarif
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: aipr-results.sarif
+```
 
 ## Status
 

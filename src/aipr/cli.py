@@ -163,6 +163,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("repo", nargs="*", help="owner/repo to inspect (accepts several for batch)")
     parser.add_argument("--text", metavar="FILE", help="classify a local file instead")
     parser.add_argument("--json", action="store_true", dest="as_json", help="JSON output")
+    parser.add_argument("--sarif", action="store_true", dest="as_sarif", help="SARIF 2.1.0 output (for GitHub Code Scanning)")
     parser.add_argument(
         "--no-cache",
         action="store_true",
@@ -337,7 +338,11 @@ def main(argv: list[str] | None = None) -> int:
         exit_code = {
             Verdict.UNKNOWN: EXIT_UNKNOWN,
         }.get(result.verdict, EXIT_OK if result.autonomous_safe else EXIT_UNSAFE)
-        print(json.dumps(payload, indent=2) if args.as_json else _render(payload))
+        if args.as_sarif:
+            from .sarif import to_sarif
+            print(json.dumps(to_sarif(payload), indent=2))
+        else:
+            print(json.dumps(payload, indent=2) if args.as_json else _render(payload))
         return exit_code
 
     # Batch mode: classify every repo, aggregate the exit code, and emit either
@@ -351,7 +356,10 @@ def main(argv: list[str] | None = None) -> int:
 
     worst = max(_exit_code(r) for r in results)
 
-    if args.as_json:
+    if args.as_sarif:
+        from .sarif import to_sarif
+        print(json.dumps(to_sarif(results), indent=2))
+    elif args.as_json:
         print(json.dumps(results if len(results) > 1 else results[0], indent=2))
     else:
         for i, r in enumerate(results):
