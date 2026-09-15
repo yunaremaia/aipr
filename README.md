@@ -1,5 +1,8 @@
 # aipr
 
+[![PyPI version](https://img.shields.io/pypi/v/aipr.svg)](https://pypi.org/project/aipr/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 **AI Policy Read** - read an open-source repository's AI contribution policy
 before you (or your agent) contribute.
 
@@ -36,12 +39,15 @@ their quota.
 ## Install
 
 ```bash
-# Standalone
+# 1. From PyPI
+pip install aipr
+
+# 2. Standalone from GitHub
 pip install git+https://github.com/yunaremaia/aipr.git
 # requires Python 3.10+; GH_TOKEN recommended (anonymous API calls rate-limit fast)
 export GH_TOKEN=ghp_xxx   # classic token with public repo read access
 
-# As a GitHub CLI extension (recommended)
+# 3. As a GitHub CLI extension (recommended)
 gh extension install yunaremaia/aipr
 ```
 
@@ -128,7 +134,37 @@ Known limits: English-only patterns; phrase matching cannot understand nuance;
 a repo can carry policy in unusual files we don't probe. Treat UNKNOWN as
 "read it yourself".
 
-## CI/CD integration (SARIF)
+## CI/CD Integration
+
+### Block PRs Violating AI Policy
+
+Drop `.github/workflows/aipr.yml` into your repository to automatically block pull requests targeting repos with human-only or restrictive AI policies:
+
+```yaml
+# .github/workflows/aipr.yml – block PRs against repos with human-only AI policies
+name: AI Policy Check
+on:
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  aipr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: pip install git+https://github.com/yunaremaia/aipr.git
+      - name: Check AI policy
+        run: |
+          aipr "$GITHUB_REPOSITORY" --json || true
+          # Exit 1 = human_only/restrictive (block)
+          # Exit 2 = unknown (warn, not block)
+          aipr "$GITHUB_REPOSITORY" --json | jq -e '.verdict == "human_only" or .verdict == "restrictive"' && exit 1 || exit 0
+```
+
+### GitHub Code Scanning (SARIF)
 
 Use `--sarif` to output SARIF 2.1.0 (Static Analysis Results Interchange Format)
 and upload to GitHub Code Scanning. This surfaces AI policy compliance as
@@ -149,7 +185,7 @@ Verdict mapping to SARIF levels:
 Example GitHub Actions workflow snippet:
 
 ```yaml
-name: AI Policy Check
+name: AI Policy Check (SARIF)
 on:
   pull_request:
     branches: [main]
