@@ -134,8 +134,16 @@ def fetch_policy_text(repo: str, use_cache: bool = True) -> list[tuple[str, str]
     return results
 
 
+def _validate_repo(repo: str) -> bool:
+    """Validate that repo matches the expected OWNER/REPO format."""
+    import re
+    return bool(re.match(r'^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$', repo))
+
+
 def classify_repo(repo: str, use_cache: bool = True) -> dict:
     """Fetch + classify all governance files of one repository."""
+    if not _validate_repo(repo):
+        raise ValueError(f"Invalid repository format: {repo!r}. Expected OWNER/REPO with alphanumeric, hyphen, underscore, dot characters.")
     files = fetch_policy_text(repo, use_cache=use_cache)
     if not files:
         return {"repo": repo, "verdict": Verdict.UNKNOWN.value, "files": [],
@@ -347,7 +355,11 @@ def main(argv: list[str] | None = None) -> int:
 
     # Batch mode: classify every repo, aggregate the exit code, and emit either
     # a JSON array or a per-repo human-readable block.
-    results = [classify_repo(repo, use_cache=not args.no_cache) for repo in args.repo]
+    try:
+        results = [classify_repo(repo, use_cache=not args.no_cache) for repo in args.repo]
+    except ValueError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return EXIT_USAGE
 
     def _exit_code(r: dict) -> int:
         if r["verdict"] == Verdict.UNKNOWN.value:

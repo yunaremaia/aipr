@@ -31,18 +31,18 @@ runs:
         aipr --json "${{ inputs.repo }}" > /tmp/aipr_output.json
         EXIT_CODE=$?
         cat /tmp/aipr_output.json
-        if [ $EXIT_CODE -ne 0 ]; then
-          if [ "${{ inputs.fail-on-unknown }}" = "true" ] && grep -q '"unknown"' /tmp/aipr_output.json; then
-            echo "::error::aipr policy check failed for ${{ inputs.repo }} (unknown policy treated as failure)"
-            exit 1
-          fi
-          if grep -q '"human_only"\|"blocked"' /tmp/aipr_output.json; then
+        echo "result=$(cat /tmp/aipr_output.json)" >> $GITHUB_OUTPUT
+        if [ "${{ inputs.fail-on-unknown }}" = "true" ] && [ $EXIT_CODE -eq 2 ]; then
+          echo "::error::aipr policy check failed for ${{ inputs.repo }} (unknown policy treated as failure)"
+          exit 1
+        fi
+        if [ $EXIT_CODE -eq 1 ]; then
+          if grep -qi 'human_only\|blocked' /tmp/aipr_output.json; then
             echo "::error::Repository blocks AI contributions: ${{ inputs.repo }}"
             exit 1
           fi
         fi
-        echo "result=$(cat /tmp/aipr_output.json)" >> $GITHUB_OUTPUT
-        exit 0
+        exit $EXIT_CODE
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.token }}
