@@ -8,6 +8,7 @@ Restrictive signals outweigh permissive ones; silence yields UNKNOWN.
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -80,11 +81,8 @@ class Policy:
         return self.verdict in (Verdict.DISCLOSE_OK, Verdict.PERMISSIVE)
 
 
-def detect_policy(text: str) -> Policy:
-    """Score one blob of governance text and classify the stance."""
-    if not text or not text.strip():
-        return Policy(Verdict.UNKNOWN, 0.0)
-
+@lru_cache(maxsize=1024)
+def _detect_policy_cached(text: str) -> Policy:
     score = 0.0
     evidence: list[str] = []
     matched_strong = False
@@ -120,3 +118,15 @@ def detect_policy(text: str) -> Policy:
     if matched_strong:
         confidence = max(confidence, 0.7)
     return Policy(verdict, round(confidence, 2), evidence, round(score, 2))
+
+
+def clear_policy_cache() -> None:
+    """Clear the in-memory LRU cache for policy scoring."""
+    _detect_policy_cached.cache_clear()
+
+
+def detect_policy(text: str) -> Policy:
+    """Score one blob of governance text and classify the stance, with bounded LRU caching."""
+    if not text or not text.strip():
+        return Policy(Verdict.UNKNOWN, 0.0)
+    return _detect_policy_cached(text)
