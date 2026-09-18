@@ -356,7 +356,10 @@ def main(argv: list[str] | None = None) -> int:
     # Batch mode: classify every repo, aggregate the exit code, and emit either
     # a JSON array or a per-repo human-readable block.
     try:
-        results = [classify_repo(repo, use_cache=not args.no_cache) for repo in args.repo]
+        if args.no_cache:
+        from .detector import clear_policy_cache
+        clear_policy_cache()
+    results = [classify_repo(repo, use_cache=not args.no_cache) for repo in args.repo]
     except ValueError as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return EXIT_USAGE

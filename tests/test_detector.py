@@ -122,3 +122,18 @@ def test_alibaba_agents_md_classifies_correctly():
     understanding, no AI attribution — should be HUMAN_ONLY."""
     p = detect_policy(UNDERSTANDING_MANDATE)
     assert p.verdict is Verdict.HUMAN_ONLY
+
+
+def test_detect_policy_lru_cache():
+    from aipr.detector import clear_policy_cache
+    clear_policy_cache()
+    
+    sample = "# Contributing\n\nWe warmly welcome AI-assisted contributions. Agents are welcome."
+    p1 = detect_policy(sample)
+    p2 = detect_policy(sample)
+    assert p1 is p2, "Expected identical Policy object identity from LRU cache"
+    
+    clear_policy_cache()
+    p3 = detect_policy(sample)
+    assert p3 == p1
+    assert p3 is not p1, "Expected cache_clear to force re-evaluation"
