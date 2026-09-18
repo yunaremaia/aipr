@@ -137,3 +137,39 @@ def test_detect_policy_lru_cache():
     p3 = detect_policy(sample)
     assert p3 == p1
     assert p3 is not p1, "Expected cache_clear to force re-evaluation"
+
+
+def test_chunked_processing_deep_signal():
+    """Verify that policies buried deep in large documents (>10KB) are detected via chunking."""
+    padding = "Standard project documentation line.\n" * 400  # ~15KB of text
+    policy_section = "\n## AI Policy\nAI contributions are strictly prohibited. All PRs must be fully human-written.\n"
+    deep_document = padding + policy_section + padding
+    assert len(deep_document) > 20_000
+
+    p = detect_policy(deep_document)
+    assert p.verdict is Verdict.HUMAN_ONLY
+    assert p.autonomous_safe is False
+    assert len(p.evidence) > 0
+
+
+def test_truncation_over_50kb(caplog):
+    """Verify that texts over 50KB are truncated with a log warning."""
+    import logging
+    huge_text = "This is boilerplate content.\n" * 2500  # ~72KB
+    assert len(huge_text) > 50_000
+
+    with caplog.at_level(logging.WARNING):
+        p = detect_policy(huge_text)
+    assert p.verdict is Verdict.UNKNOWN
+    assert any("exceeds" in record.message.lower() for record in caplog.records)
+
+
+def test_benchmark_large_text():
+    """Ensure scanning a large text executes within performance bounds."""
+    import time
+    large_doc = ("# Header\nLots of text here.\n" * 1500) + "\nWe welcome AI-assisted contributions. Agents are welcome.\n"
+    start = time.perf_counter()
+    p = detect_policy(large_doc)
+    duration = time.perf_counter() - start
+    assert duration < 1.0
+    assert p.verdict is Verdict.PERMISSIVE

@@ -8,9 +8,12 @@ Restrictive signals outweigh permissive ones; silence yields UNKNOWN.
 from __future__ import annotations
 
 import re
+import logging
 from functools import lru_cache
 from dataclasses import dataclass, field
 from enum import Enum
+
+logger = logging.getLogger(__name__)
 
 
 class Verdict(Enum):
@@ -99,6 +102,10 @@ def _detect_policy_cached(text: str) -> Policy:
         if abs(weight) >= 3.0:
             matched_strong = True
 
+    return _evaluate_score(score, evidence, matched_strong)
+
+
+def _evaluate_score(score: float, evidence: list[str], matched_strong: bool) -> Policy:
     if not evidence or score == 0.0:
         return Policy(Verdict.UNKNOWN, 0.0, evidence, score)
 
@@ -125,8 +132,47 @@ def clear_policy_cache() -> None:
     _detect_policy_cached.cache_clear()
 
 
+CHUNK_SIZE = 10_000
+MAX_TEXT_SIZE = 50_000
+
+
 def detect_policy(text: str) -> Policy:
-    """Score one blob of governance text and classify the stance, with bounded LRU caching."""
+    """Score one blob of governance text and classify the stance, with bounded LRU caching.
+
+    Maximum text size limit is 50,000 characters (50KB); inputs exceeding this limit
+    are explicitly truncated with a warning. Texts larger than 10KB are processed in
+    10KB chunks to preserve LRU cache efficiency and detect deep policy signals.
+    """
     if not text or not text.strip():
         return Policy(Verdict.UNKNOWN, 0.0)
-    return _detect_policy_cached(text)
+
+    if len(text) > MAX_TEXT_SIZE:
+        logger.warning(
+            "Governance text length (%d) exceeds limit (%d chars); truncating to %d",
+            len(text),
+            MAX_TEXT_SIZE,
+            MAX_TEXT_SIZE,
+        )
+        text = text[:MAX_TEXT_SIZE]
+
+    if len(text) <= CHUNK_SIZE:
+        return _detect_policy_cached(text)
+
+    # Process in chunks of CHUNK_SIZE
+    chunks = [text[i : i + CHUNK_SIZE] for i in range(0, len(text), CHUNK_SIZE)]
+    total_score = 0.0
+    all_evidence: list[str] = []
+    has_strong = False
+
+    for chunk in chunks:
+        p = _detect_policy_cached(chunk)
+        total_score += p.score
+        all_evidence.extend(p.evidence)
+        if any(
+            "[+3." in ev or "[-3." in ev or "[+4." in ev or "[-4." in ev or "[+5." in ev or "[-5." in ev
+            for ev in p.evidence
+        ):
+            has_strong = True
+
+    unique_evidence = list(dict.fromkeys(all_evidence))
+    return _evaluate_score(total_score, unique_evidence, has_strong)
