@@ -44,6 +44,10 @@ RULES: list[tuple[re.Pattern[str], float]] = [
     (re.compile(r"may\s+not\s+use\s+ai\s+for\s+['\"]?good\s+first\s+issues?", re.I), 2.0),
     (re.compile(r"extractive\s+contribution", re.I), 1.5),
     (re.compile(r"assisted[- ]by:\s*ai\s+(?:trailer\s+)?is\s+(?:required|mandatory)", re.I), 1.5),
+    # --- understanding / human-in-the-loop mandate (e.g. alibaba/open-code-review AGENTS.md) ---
+    (re.compile(r"(?:you\s+must|contributors?\s+must)\s+(?:disclose|report|declare)[^.]{0,80}\b(?:ai|artificial\s+intelligence|llm|copilot|claude|gpt|coding\s+agent)", re.I), 2.5),
+    (re.compile(r"(?:review|understand)\s+(?:every\s+line|all\s+(?:code|content|text))\s+(?:written|generated)\s+by\s+ai", re.I), 2.0),
+    (re.compile(r"(?:must\s+not|shall\s+not)\s+attribute\s+commits?\s+(?:to\s+(?:ai|llm)|through\s+(?:assisted[- ]by|co[- ]developed))", re.I), 1.5),
     # --- disclose-ok ---
     (re.compile(r"assisted[- ]by:\s*ai", re.I), -1.5),
     (re.compile(r"disclos\w+[^.]{0,40}\b(?:is|are)\s+(?:required|expected)", re.I), -1.0),
