@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import sys
 import time
@@ -20,6 +21,8 @@ from pathlib import Path
 
 from . import __version__
 from .detector import Verdict, detect_policy
+
+logger = logging.getLogger(__name__)
 
 # Files that commonly carry AI policy, in priority order. The org-level
 # .github repo is also probed because many foundations centralize there.
@@ -79,8 +82,8 @@ def _cache_get(key: str):
         if time.time() - entry["ts"] <= _cache_ttl():
             return entry["files"]
         path.unlink(missing_ok=True)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Cache read failed for %s: %s", key, e)
     return None
 
 
@@ -105,7 +108,8 @@ def _fetch_gh(url: str) -> str | None:
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
             return resp.read().decode("utf-8", errors="replace")
-    except Exception:
+    except Exception as e:
+        logger.warning("GitHub fetch failed for %s: %s", url, e)
         return None
 
 

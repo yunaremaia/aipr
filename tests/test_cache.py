@@ -76,3 +76,29 @@ def test_clear_cache_removes_dir(tmp_path, monkeypatch):
     from aipr.cli import _cache_dir
     assert (_cache_dir()).exists() or True
     clear_cache()
+
+import logging
+
+def test_cache_get_logs_warning_on_error(tmp_path, monkeypatch, caplog):
+    """Cache read failure should log a warning."""
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    monkeypatch.setenv("AIPR_CACHE_DIR", str(cache_dir))
+    (cache_dir / "corrupt.json").write_text("{not valid json")
+    from aipr.cli import _cache_get
+    with caplog.at_level(logging.WARNING):
+        result = _cache_get("corrupt")
+    assert result is None
+    assert any("Cache read failed" in rec.message for rec in caplog.records)
+
+def test_fetch_gh_logs_warning_on_network_error(monkeypatch, caplog):
+    """GitHub fetch failure should log a warning."""
+    import urllib.error
+    import unittest.mock
+    from aipr.cli import _fetch_gh
+    with unittest.mock.patch("urllib.request.urlopen", side_effect=urllib.error.URLError("simulated")):
+        with caplog.at_level(logging.WARNING):
+            result = _fetch_gh("https://api.github.com/repos/test/repo/contents/AI_POLICY.md")
+    assert result is None
+    assert any("GitHub fetch failed" in rec.message for rec in caplog.records)
+
