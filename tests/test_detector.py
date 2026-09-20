@@ -137,3 +137,50 @@ def test_detect_policy_lru_cache():
     p3 = detect_policy(sample)
     assert p3 == p1
     assert p3 is not p1, "Expected cache_clear to force re-evaluation"
+
+
+CURSORRULES_RESTRICTIVE = """
+# Cursor Rules
+
+Never generate code for files in src/legacy/ without human review.
+"""
+
+
+def test_cursorrules_restrictive_detected():
+    p = detect_policy(CURSORRULES_RESTRICTIVE)
+    assert p.verdict is Verdict.RESTRICTIVE
+    assert p.autonomous_safe is False
+    assert any("Never generate code for" in e for e in p.evidence)
+
+
+def test_local_policy_restrictive_patterns():
+    # all changes must be reviewed
+    p1 = detect_policy("All changes must be reviewed before merging.")
+    assert p1.verdict is Verdict.RESTRICTIVE
+    assert p1.autonomous_safe is False
+
+    # all edits must be human reviewed
+    p2 = detect_policy("All edits must be human-reviewed.")
+    assert p2.verdict is Verdict.RESTRICTIVE
+    assert p2.autonomous_safe is False
+
+    # do not use copilot / cursor / aider for
+    p3 = detect_policy("Do not use Copilot for security-critical modules.")
+    assert p3.verdict is Verdict.RESTRICTIVE
+    assert p3.autonomous_safe is False
+
+    p4 = detect_policy("Do not use cursor to modify database schemas.")
+    assert p4.verdict is Verdict.RESTRICTIVE
+    assert p4.autonomous_safe is False
+
+    p5 = detect_policy("Never use aider for documentation.")
+    assert p5.verdict is Verdict.RESTRICTIVE
+    assert p5.autonomous_safe is False
+
+
+def test_ordinary_ai_mention_not_restrictive():
+    sample = "This project uses Cursor, Windsurf, Copilot, and Aider as development tools."
+    p = detect_policy(sample)
+    assert p.verdict is Verdict.UNKNOWN
+    assert p.autonomous_safe is False
+    assert p.score == 0.0
