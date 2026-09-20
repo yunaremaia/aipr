@@ -101,3 +101,105 @@ def test_text_mode_unknown_exit_code(tmp_path, capsys):
 def test_no_args_is_usage_error(capsys):
     code = main([])
     assert code == 64
+
+
+@pytest.mark.parametrize("policy_file", [
+    ".github/copilot-instructions.md",
+    ".cursorrules",
+    ".windsurfrules",
+    ".aider.conf.yml",
+])
+def test_local_policy_files_detected(monkeypatch, policy_file):
+    from aipr import cli as cli_mod
+    from aipr.cli import classify_repo, fetch_policy_text
+
+    content = "Never generate code for files in src/legacy/ without human review."
+
+    def fake_fetch(url):
+        if url.endswith(f"/contents/{policy_file}"):
+            return content
+        return None
+
+    monkeypatch.setattr(cli_mod, "_fetch_gh", fake_fetch)
+
+    # Verify discovered and fetched
+    fetched = fetch_policy_text("owner/repo", use_cache=False)
+    assert fetched == [(policy_file, content)]
+
+    # Verify participates in classification
+    result = classify_repo("owner/repo", use_cache=False)
+    assert result["verdict"] == "restrictive"
+    assert policy_file in result["files"]
+    assert result["autonomous_safe"] is False
+    assert any("Never generate code for" in e for e in result["evidence"])
+
+
+def test_explain_source_reported_for_cursorrules(monkeypatch, capsys):
+    from aipr import cli as cli_mod
+
+    def fake_fetch(url):
+        if url.endswith("/contents/.cursorrules"):
+            return "Never generate code for files in src/legacy/ without human review."
+        return None
+
+    monkeypatch.setattr(cli_mod, "_fetch_gh", fake_fetch)
+
+    code = main(["owner/repo", "--explain", "--no-cache"])
+    out = capsys.readouterr().out
+    assert code == 1
+    assert "sources: .cursorrules" in out
+    assert "Never generate code for" in out
+
+
+def test_explain_text_mode(tmp_path, capsys):
+    f = tmp_path / ".cursorrules"
+    f.write_text("Never generate code for files in src/legacy/ without human review.\n")
+    code = main(["--text", str(f), "--explain"])
+    out = capsys.readouterr().out
+    assert code == 1
+    assert ".cursorrules" in out
+    assert "Never generate code for" in out
+
+
+def test_multiple_policy_files_sources_reported(monkeypatch, capsys):
+    from aipr import cli as cli_mod
+
+    def fake_fetch(url):
+        if url.endswith("/contents/CONTRIBUTING.md"):
+            return "# Contributing\n\nThanks for contributing! Fork, branch, and open a PR."
+        if url.endswith("/contents/.cursorrules"):
+            return "Never generate code for files in src/legacy/ without human review."
+        return None
+
+    monkeypatch.setattr(cli_mod, "_fetch_gh", fake_fetch)
+
+    code = main(["owner/repo", "--explain", "--no-cache"])
+    out = capsys.readouterr().out
+    assert code == 1
+    assert "sources: CONTRIBUTING.md, .cursorrules" in out
+    assert "Never generate code for" in out
+
+
+def test_no_policy_files_unknown(monkeypatch, capsys):
+    from aipr import cli as cli_mod
+
+    monkeypatch.setattr(cli_mod, "_fetch_gh", lambda url: None)
+    code = main(["owner/repo", "--explain", "--no-cache"])
+    out = capsys.readouterr().out
+    assert code == 2
+    assert "[UNKNOWN]" in out
+
+
+def test_ordinary_ai_tools_mention_not_restrictive(monkeypatch, capsys):
+    from aipr import cli as cli_mod
+
+    def fake_fetch(url):
+        if url.endswith("/contents/.cursorrules"):
+            return "This project uses Cursor, Windsurf, Copilot, and Aider for coding."
+        return None
+
+    monkeypatch.setattr(cli_mod, "_fetch_gh", fake_fetch)
+    code = main(["owner/repo", "--json", "--no-cache"])
+    out = json.loads(capsys.readouterr().out)
+    assert code == 2
+    assert out["verdict"] == "unknown"

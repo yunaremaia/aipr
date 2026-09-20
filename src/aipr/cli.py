@@ -41,6 +41,10 @@ CANDIDATE_FILES = [
     "AGENTS.md",
     "CLAUDE.md",
     "README.md",
+    ".github/copilot-instructions.md",
+    ".cursorrules",
+    ".windsurfrules",
+    ".aider.conf.yml",
 ]
 
 ORG_FALLBACK_FILES = [".github/AI_POLICY.md", ".github/CONTRIBUTING.md"]
@@ -199,6 +203,12 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--text", metavar="FILE", help="classify a local file instead")
     parser.add_argument("--json", action="store_true", dest="as_json", help="JSON output")
     parser.add_argument("--sarif", action="store_true", dest="as_sarif", help="SARIF 2.1.0 output (for GitHub Code Scanning)")
+    parser.add_argument(
+        "--explain",
+        action="store_true",
+        dest="explain",
+        help="explain verdict with contributing policy sources and snippets",
+    )
     parser.add_argument(
         "--no-cache",
         action="store_true",
@@ -364,6 +374,7 @@ def main(argv: list[str] | None = None) -> int:
         result = detect_policy(text)
         payload = {
             "source": args.text,
+            "files": [args.text],
             "verdict": result.verdict.value,
             "evidence": result.evidence,
             "autonomous_safe": result.autonomous_safe,

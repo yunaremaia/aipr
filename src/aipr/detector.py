@@ -49,6 +49,10 @@ RULES: list[tuple[re.Pattern[str], float]] = [
     (re.compile(r"(?:you\s+must|contributors?\s+must)\s+(?:disclose|report|declare)[^.]{0,80}\b(?:ai|artificial\s+intelligence|llm|copilot|claude|gpt|coding\s+agent)", re.I), 2.5),
     (re.compile(r"(?:review|understand)\s+(?:every\s+line|all\s+(?:code|content|text))\s+(?:written|generated)\s+by\s+ai", re.I), 2.0),
     (re.compile(r"(?:must\s+not|shall\s+not)\s+attribute\s+commits?\s+(?:to\s+(?:ai|llm)|through\s+(?:assisted[- ]by|co[- ]developed))", re.I), 1.5),
+    # --- local AI tool policy rules (.cursorrules, copilot-instructions, etc.) ---
+    (re.compile(r"never\s+(?:generate|write|create)(?:\s+or\s+(?:generate|write|create))?\s+(?:any\s+)?(?:code|content)\s+(?:for|in|without)\b", re.I), 2.5),
+    (re.compile(r"all\s+(?:(?:code|ai)\s+)?(?:changes|edits|modifications)\s+must\s+be\s+(?:human[- ]?)?reviewed\b", re.I), 2.0),
+    (re.compile(r"(?:do\s+not|don't|never|may\s+not)\s+use\s+(?:ai|copilot|cursor|windsurf|aider|llms?)\s+(?:for|to)\b", re.I), 2.5),
     # --- disclose-ok ---
     (re.compile(r"assisted[- ]by:\s*ai", re.I), -1.5),
     (re.compile(r"disclos\w+[^.]{0,40}\b(?:is|are)\s+(?:required|expected)", re.I), -1.0),
