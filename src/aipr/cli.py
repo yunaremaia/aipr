@@ -21,6 +21,7 @@ from pathlib import Path
 
 from . import __version__
 from .detector import Verdict, detect_policy
+from .http import fetch_with_retry, RateLimitError
 
 logger = logging.getLogger(__name__)
 
@@ -98,23 +99,21 @@ def _cache_put(key: str, files: list) -> None:
 
 
 def _fetch_gh(url: str) -> str | None:
-    """Fetch raw content via the GitHub API (honors GH_TOKEN; no hard dep on gh)."""
-    import urllib.request
+    """Fetch raw content via the GitHub API (honors GH_TOKEN; no hard dep on gh).
 
-    req = urllib.request.Request(url, headers={"Accept": "application/vnd.github.raw+json"})
-    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
-    if token:
-        req.add_header("Authorization", f"Bearer {token}")
-    try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            return resp.read().decode("utf-8", errors="replace")
-    except Exception as e:
-        logger.warning("GitHub fetch failed for %s: %s", url, e)
-        return None
+    Delegates to :func:`aipr.http.fetch_with_retry` for retry + rate-limit
+    handling. Transient errors (502/503/504/408/429) are retried up to 3 times
+    with exponential backoff. HTTP 403 (rate limit) raises RateLimitError.
+    """
+    return fetch_with_retry(url)
 
 
 def fetch_policy_text(repo: str, use_cache: bool = True) -> list[tuple[str, str]]:
-    """Return [(filename, text), ...] for every candidate file found in owner/repo."""
+    """Return [(filename, text), ...] for every candidate file found in owner/repo.
+
+    Raises :class:`RateLimitError` if rate-limited by the GitHub API. In that case,
+    no caching occurs — a later retry can succeed.
+    """
     key = repo.replace("/", "__")
     if use_cache:
         cached = _cache_get(key)
@@ -123,17 +122,23 @@ def fetch_policy_text(repo: str, use_cache: bool = True) -> list[tuple[str, str]
 
     results: list[tuple[str, str]] = []
     for name in CANDIDATE_FILES:
-        text = _fetch_gh(f"https://api.github.com/repos/{repo}/contents/{name}")
+        try:
+            text = _fetch_gh(f"https://api.github.com/repos/{repo}/contents/{name}")
+        except RateLimitError:
+            raise  # propagate — caller handles, no caching
         if text and text.strip():
             results.append((name, text))
     if not results and "/" in repo:
         org = repo.split("/")[0]
         for name in ORG_FALLBACK_FILES:
-            text = _fetch_gh(f"https://api.github.com/repos/{org}/.github/contents/{name}")
+            try:
+                text = _fetch_gh(f"https://api.github.com/repos/{org}/.github/contents/{name}")
+            except RateLimitError:
+                raise
             if text and text.strip():
                 results.append((f"{org}/.github/{name}", text))
                 break
-    if use_cache:
+    if use_cache and results:
         _cache_put(key, [(name, text) for name, text in results])
     return results
 
@@ -145,10 +150,28 @@ def _validate_repo(repo: str) -> bool:
 
 
 def classify_repo(repo: str, use_cache: bool = True) -> dict:
-    """Fetch + classify all governance files of one repository."""
+    """Fetch + classify all governance files of one repository.
+
+    On :class:`RateLimitError`, the cache is NOT populated with an empty result
+    so that a later retry can succeed. The returned dict contains
+    ``rate_limited: true`` to allow callers to distinguish this case from
+    genuine "no policy found" unknowns.
+    """
     if not _validate_repo(repo):
         raise ValueError(f"Invalid repository format: {repo!r}. Expected OWNER/REPO with alphanumeric, hyphen, underscore, dot characters.")
-    files = fetch_policy_text(repo, use_cache=use_cache)
+    try:
+        files = fetch_policy_text(repo, use_cache=use_cache)
+    except RateLimitError as e:
+        logger.warning("Rate-limited on %s: %s", repo, e)
+        return {
+            "repo": repo,
+            "verdict": Verdict.UNKNOWN.value,
+            "files": [],
+            "rate_limited": True,
+            "autonomous_safe": False,
+            "confidence": 0.0,
+            "score": 0.0,
+        }
     if not files:
         return {"repo": repo, "verdict": Verdict.UNKNOWN.value, "files": [],
                 "autonomous_safe": False, "confidence": 0.0, "score": 0.0}
