@@ -126,7 +126,12 @@ def clear_policy_cache() -> None:
 
 
 def detect_policy(text: str) -> Policy:
-    """Score one blob of governance text and classify the stance, with bounded LRU caching."""
+    """Score one blob of governance text and classify the stance, with bounded LRU caching.
+    
+    Returns a deep copy of the cached Policy to prevent mutation of shared state
+    across concurrent callers (fixes #95, #80, #72).
+    """
     if not text or not text.strip():
         return Policy(Verdict.UNKNOWN, 0.0)
-    return _detect_policy_cached(text)
+    import copy
+    return copy.deepcopy(_detect_policy_cached(text))
