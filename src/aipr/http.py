@@ -35,8 +35,12 @@ def fetch_with_retry(
     token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
 
     for attempt in range(max_retries + 1):
+        from . import __version__
         req = urllib.request.Request(
-            url, headers={"Accept": "application/vnd.github.raw+json"}
+            url, headers={
+                "Accept": "application/vnd.github.raw+json",
+                "User-Agent": f"aipr/{__version__}",
+            }
         )
         if token:
             req.add_header("Authorization", f"Bearer {token}")
