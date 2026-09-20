@@ -72,11 +72,14 @@ RESTRICTIVE_THRESHOLD = 2.0
 DISCLOSE_THRESHOLD = -0.5
 
 
-@dataclass
+@dataclass(frozen=True)
 class Policy:
+    """Immutable: instances are shared by the LRU cache below, so a caller must
+    never be able to mutate one out from under the next caller (see #72)."""
+
     verdict: Verdict
     confidence: float
-    evidence: list[str] = field(default_factory=list)
+    evidence: tuple[str, ...] = field(default_factory=tuple)
     score: float = 0.0
 
     @property
@@ -104,7 +107,7 @@ def _detect_policy_cached(text: str) -> Policy:
             matched_strong = True
 
     if not evidence or score == 0.0:
-        return Policy(Verdict.UNKNOWN, 0.0, evidence, score)
+        return Policy(Verdict.UNKNOWN, 0.0, tuple(evidence), score)
 
     if score >= 4.0:
         verdict = Verdict.HUMAN_ONLY
@@ -121,7 +124,7 @@ def _detect_policy_cached(text: str) -> Policy:
     confidence = min(1.0, abs(score) / 5.0)
     if matched_strong:
         confidence = max(confidence, 0.7)
-    return Policy(verdict, round(confidence, 2), evidence, round(score, 2))
+    return Policy(verdict, round(confidence, 2), tuple(evidence), round(score, 2))
 
 
 def clear_policy_cache() -> None:

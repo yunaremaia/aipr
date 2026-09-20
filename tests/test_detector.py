@@ -1,5 +1,8 @@
 """Tests for aipr policy detection."""
 
+import dataclasses
+
+import pytest
 from aipr.detector import Verdict, detect_policy
 
 
@@ -137,6 +140,27 @@ def test_detect_policy_lru_cache():
     p3 = detect_policy(sample)
     assert p3 == p1
     assert p3 is not p1, "Expected cache_clear to force re-evaluation"
+
+
+def test_cached_policy_cannot_be_corrupted_by_callers():
+    """A caller must not be able to mutate a cached Policy (issue #72)."""
+    from aipr.detector import clear_policy_cache
+    clear_policy_cache()
+
+    sample = "# Contributing\n\nAI should never be the main author of the PR."
+    p1 = detect_policy(sample)
+    assert isinstance(p1.evidence, tuple), "evidence must be immutable"
+    with pytest.raises(AttributeError):
+        p1.evidence.append("forged evidence")  # type: ignore[attr-defined]
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        p1.evidence = ()  # type: ignore[misc]
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        p1.score = 99.0  # type: ignore[misc]
+
+    p2 = detect_policy(sample)
+    assert p2.evidence == p1.evidence
+    assert p2.score == p1.score
+    assert all("forged evidence" not in e for e in p2.evidence)
 
 
 CURSORRULES_RESTRICTIVE = """
