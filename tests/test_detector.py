@@ -131,7 +131,7 @@ def test_detect_policy_lru_cache():
     sample = "# Contributing\n\nWe warmly welcome AI-assisted contributions. Agents are welcome."
     p1 = detect_policy(sample)
     p2 = detect_policy(sample)
-    assert p1 is p2, "Expected identical Policy object identity from LRU cache"
+    assert p1 == p2, "Expected equal Policy objects from LRU cache (deep copy semantics)"
     
     clear_policy_cache()
     p3 = detect_policy(sample)
