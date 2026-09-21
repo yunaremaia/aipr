@@ -134,6 +134,7 @@ def test_detect_policy_lru_cache():
     # detect_policy returns deepcopy to prevent cache mutation (fixes #95/#80/#72)
     assert p1 == p2, "Expected equal Policy values from LRU cache"
     assert p1 is not p2, "Expected deepcopy to create distinct objects"
+
     
     clear_policy_cache()
     p3 = detect_policy(sample)
