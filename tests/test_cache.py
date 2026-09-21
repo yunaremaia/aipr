@@ -72,6 +72,11 @@ def test_corrupt_cache_entry_is_ignored(tmp_path, monkeypatch):
 
 def test_clear_cache_removes_dir(tmp_path, monkeypatch):
     monkeypatch.setenv("AIPR_CACHE_DIR", str(tmp_path / "c"))
+    calls = []
+    def fake_fetch(url):
+        calls.append(url)
+        return "test policy"
+    monkeypatch.setattr(cli_mod, "_fetch_gh", fake_fetch)
     fetch_policy_text("o/r")
     from aipr.cli import _cache_dir
     assert (_cache_dir()).exists() or True
