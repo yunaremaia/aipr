@@ -35,10 +35,14 @@ CANDIDATE_FILES = [
     "CONTRIBUTING-BEGINNERS.md",
     ".github/AI_POLICY.md",
     ".github/CONTRIBUTING.md",
+    ".github/copilot-instructions.md",
     "docs/CONTRIBUTING.md",
     "docs/CONTRIBUTING-BEGINNERS.md",
     "AGENTS.md",
     "CLAUDE.md",
+    ".cursorrules",
+    ".windsurfrules",
+    ".aider.conf.yml",
     "README.md",
 ]
 
