@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import re as _re
 import regex
-from functools import lru_cache
 from dataclasses import dataclass, field
 from enum import Enum
+
+from aipr.cache import TTLCache
 
 
 class Verdict(Enum):
@@ -27,6 +28,9 @@ MAX_INPUT_LENGTH = 1_000_000  # 1 MB
 
 # Timeout in milliseconds for regex operations (prevents catastrophic backtracking)
 REGEX_TIMEOUT_MS = 500  # 0.5 seconds
+
+# Global TTL cache instance (replaces lru_cache)
+_policy_cache = TTLCache()
 
 # (compiled pattern, weight). Positive = restrictive signal, negative = permissive.
 # Note: patterns use regex module (not re) for timeout support.
@@ -93,8 +97,8 @@ class Policy:
         return self.verdict in (Verdict.DISCLOSE_OK, Verdict.PERMISSIVE)
 
 
-@lru_cache(maxsize=1024)
-def _detect_policy_cached(text: str) -> Policy:
+def _score_text(text: str) -> Policy:
+    """Score a single blob of governance text (pure computation, no caching)."""
     score = 0.0
     evidence: list[str] = []
     matched_strong = False
@@ -103,7 +107,6 @@ def _detect_policy_cached(text: str) -> Policy:
         try:
             match = pattern.search(text, timeout=REGEX_TIMEOUT_MS)
         except TimeoutError:
-            # Pattern timed out — skip this rule rather than hanging
             continue
         if not match:
             continue
@@ -127,7 +130,6 @@ def _detect_policy_cached(text: str) -> Policy:
             Verdict.PERMISSIVE if score <= -3.0 else Verdict.DISCLOSE_OK
         )
     else:
-        # weak mixed signals: lean restrictive for agent safety
         verdict = Verdict.RESTRICTIVE if score > 0 else Verdict.DISCLOSE_OK
 
     confidence = min(1.0, abs(score) / 5.0)
@@ -137,24 +139,31 @@ def _detect_policy_cached(text: str) -> Policy:
 
 
 def clear_policy_cache() -> None:
-    """Clear the in-memory LRU cache for policy scoring."""
-    _detect_policy_cached.cache_clear()
+    """Clear the in-memory cache for policy scoring."""
+    _policy_cache.clear()
 
 
 def detect_policy(text: str) -> Policy:
-    """Score one blob of governance text and classify the stance, with bounded LRU caching.
+    """Score one blob of governance text and classify the stance.
     
-    Returns a deep copy of the cached Policy to prevent mutation of shared state
-    across concurrent callers (fixes #95, #80, #72).
+    Uses a thread-safe TTL cache with deep copy on read to prevent
+    mutation of shared state across concurrent callers.
     
-    Input text is truncated to MAX_INPUT_LENGTH to prevent ReDoS on adversarial
-    input (fixes #113). Regex operations use the `regex` module with a timeout
-    to prevent catastrophic backtracking.
+    Input text is truncated to MAX_INPUT_LENGTH to prevent ReDoS on
+    adversarial input.
     """
     if not text or not text.strip():
         return Policy(Verdict.UNKNOWN, 0.0)
-    import copy
     # Truncate to prevent catastrophic backtracking on adversarial input
     if len(text) > MAX_INPUT_LENGTH:
         text = text[:MAX_INPUT_LENGTH]
-    return copy.deepcopy(_detect_policy_cached(text))
+    
+    # Check cache first (returns deep copy on hit)
+    cached = _policy_cache.get(text)
+    if cached is not None:
+        return cached
+    
+    # Compute and cache
+    result = _score_text(text)
+    _policy_cache.put(text, result)
+    return result
