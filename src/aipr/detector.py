@@ -7,7 +7,8 @@ Restrictive signals outweigh permissive ones; silence yields UNKNOWN.
 
 from __future__ import annotations
 
-import re
+import re as _re
+import regex
 from functools import lru_cache
 from dataclasses import dataclass, field
 from enum import Enum
@@ -21,51 +22,58 @@ class Verdict(Enum):
     UNKNOWN = "unknown"            # no policy text found
 
 
+# Maximum input length before truncation (prevents ReDoS on adversarial input)
+MAX_INPUT_LENGTH = 1_000_000  # 1 MB
+
+# Timeout in milliseconds for regex operations (prevents catastrophic backtracking)
+REGEX_TIMEOUT_MS = 500  # 0.5 seconds
+
 # (compiled pattern, weight). Positive = restrictive signal, negative = permissive.
-RULES: list[tuple[re.Pattern[str], float]] = [
+# Note: patterns use regex module (not re) for timeout support.
+RULES: list[tuple[regex.Pattern[str], float]] = [
     # --- human-only / ban level (strongest) ---
-    (re.compile(r"must\s+be\s+fully\s+human[- ]written", re.I), 5.0),
-    (re.compile(r"ai\s+should\s+never\s+be\s+the\s+main\s+author", re.I), 5.0),
-    (re.compile(r"human[\s-]+authored\s+only", re.I), 5.0),
-    (re.compile(r"(?:we\s+)?(?:do\s+not|don't)\s+accept\s+(?:any\s+)?ai", re.I), 4.5),
-    (re.compile(r"(?:will\s+not\s+be\s+accepted|not\s+accepted\s+here)[^.]*\bai\b", re.I), 4.5),
-    (re.compile(r"no\s+ai[- ]generated\s+(?:code|content|contributions)", re.I), 4.5),
-    (re.compile(r"ai\s+contributions?\s+are\s+(?:strictly\s+)?(?:forbidden|prohibited|banned)", re.I), 4.5),
-    (re.compile(r"(?:full(?:y|)\s+)?ai[- ]generated\s+contributions?[^.]{0,80}are\s+not\s+(?:allowed|permitted)", re.I), 4.5),
-    (re.compile(r"fully\s+generated\s+code\s+is\s+not\s+allowed", re.I), 4.5),
-    (re.compile(r"agents?\s+are\s+strictly\s+forbidden", re.I), 5.0),
-    (re.compile(r"bad\s+ai\s+\w+\s+will\s+be\s+(?:denounced|blocked)", re.I), 3.0),
-    (re.compile(r"human[\s-]+in[\s-]+the[\s-]+loop\s+is\s+(?:required|mandatory)", re.I), 2.0),
-    (re.compile(r"(?:full\s+)?ai[- ]automation\s+without\s+human\s+review\s+is\s+not\s+(?:currently\s+)?permitted", re.I), 3.0),
-    (re.compile(r"write\s+pr\s+descriptions?\s+yourself", re.I), 1.5),
+    (regex.compile(r"must\s+be\s+fully\s+human[- ]written", regex.I), 5.0),
+    (regex.compile(r"ai\s+should\s+never\s+be\s+the\s+main\s+author", regex.I), 5.0),
+    (regex.compile(r"human[\s-]+authored\s+only", regex.I), 5.0),
+    (regex.compile(r"(?:\bwe\s+)?(?:do\s+not|don't)\s+accept\s+(?:any\s+)?ai", regex.I), 4.5),
+    (regex.compile(r"(?:will\s+not\s+be\s+accepted|not\s+accepted\s+here)[^.]*\bai\b", regex.I), 4.5),
+    (regex.compile(r"no\s+ai[- ]generated\s+(?:code|content|contributions)", regex.I), 4.5),
+    (regex.compile(r"ai\s+contributions?\s+are\s+(?:strictly\s+)?(?:forbidden|prohibited|banned)", regex.I), 4.5),
+    (regex.compile(r"(?:full(?:y|)\s+)?ai[- ]generated\s+contributions?[^.]{0,80}are\s+not\s+(?:allowed|permitted)", regex.I), 4.5),
+    (regex.compile(r"fully\s+generated\s+code\s+is\s+not\s+allowed", regex.I), 4.5),
+    (regex.compile(r"agents?\s+are\s+strictly\s+forbidden", regex.I), 5.0),
+    (regex.compile(r"bad\s+ai\s+\w+\s+will\s+be\s+(?:denounced|blocked)", regex.I), 3.0),
+    (regex.compile(r"human[\s-]+in[\s-]+the[\s-]+loop\s+is\s+(?:required|mandatory)", regex.I), 2.0),
+    (regex.compile(r"(?:\b)?ai[- ]automation\s+without\s+human\s+review\s+is\s+not\s+(?:currently\s+)?permitted", regex.I), 3.0),
+    (regex.compile(r"write\s+pr\s+descriptions?\s+yourself", regex.I), 1.5),
     # --- restrictive ---
-    (re.compile(r"all\s+ai\s+usage[^.]{0,60}must\s+be\s+disclosed", re.I), 2.5),
-    (re.compile(r"mandatory\s+disclosure", re.I), 2.0),
-    (re.compile(r"must\s+state\s+the\s+tool\s+you\s+used", re.I), 2.0),
-    (re.compile(r"may\s+not\s+use\s+ai\s+for\s+['\"]?good\s+first\s+issues?", re.I), 2.0),
-    (re.compile(r"extractive\s+contribution", re.I), 1.5),
-    (re.compile(r"assisted[- ]by:\s*ai\s+(?:trailer\s+)?is\s+(?:required|mandatory)", re.I), 1.5),
+    (regex.compile(r"all\s+ai\s+usage[^.]{0,60}must\s+be\s+disclosed", regex.I), 2.5),
+    (regex.compile(r"mandatory\s+disclosure", regex.I), 2.0),
+    (regex.compile(r"must\s+state\s+the\s+tool\s+you\s+used", regex.I), 2.0),
+    (regex.compile(r"may\s+not\s+use\s+ai\s+for\s+['\"]?good\s+first\s+issues?", regex.I), 2.0),
+    (regex.compile(r"extractive\s+contribution", regex.I), 1.5),
+    (regex.compile(r"assisted[- ]by:\s*ai\s+(?:trailer\s+)?is\s+(?:required|mandatory)", regex.I), 1.5),
     # --- understanding / human-in-the-loop mandate (e.g. alibaba/open-code-review AGENTS.md) ---
-    (re.compile(r"(?:you\s+must|contributors?\s+must)\s+(?:disclose|report|declare)[^.]{0,80}\b(?:ai|artificial\s+intelligence|llm|copilot|claude|gpt|coding\s+agent)", re.I), 2.5),
-    (re.compile(r"(?:review|understand)\s+(?:every\s+line|all\s+(?:code|content|text))\s+(?:written|generated)\s+by\s+ai", re.I), 2.0),
-    (re.compile(r"(?:must\s+not|shall\s+not)\s+attribute\s+commits?\s+(?:to\s+(?:ai|llm)|through\s+(?:assisted[- ]by|co[- ]developed))", re.I), 1.5),
+    (regex.compile(r"(?:you\s+must|contributors?\s+must)\s+(?:disclose|report|declare)[^.]{0,80}\b(?:ai|artificial\s+intelligence|llm|copilot|claude|gpt|coding\s+agent)\b", regex.I), 2.5),
+    (regex.compile(r"(?:review|understand)\s+(?:every\s+line|all\s+(?:code|content|text))\s+(?:written|generated)\s+by\s+ai", regex.I), 2.0),
+    (regex.compile(r"(?:must\s+not|shall\s+not)\s+attribute\s+commits?\s+(?:to\s+(?:ai|llm)|through\s+(?:assisted[- ]by|co[- ]developed))", regex.I), 1.5),
     # --- local AI tool policy rules (.cursorrules, copilot-instructions, etc.) ---
-    (re.compile(r"never\s+(?:generate|write|create)(?:\s+or\s+(?:generate|write|create))?\s+(?:any\s+)?(?:code|content)\s+(?:for|in|without)\b", re.I), 2.5),
-    (re.compile(r"all\s+(?:(?:code|ai)\s+)?(?:changes|edits|modifications)\s+must\s+be\s+(?:human[- ]?)?reviewed\b", re.I), 2.0),
-    (re.compile(r"(?:do\s+not|don't|never|may\s+not)\s+use\s+(?:ai|copilot|cursor|windsurf|aider|llms?)\s+(?:for|to)\b", re.I), 2.5),
+    (regex.compile(r"never\s+(?:generate|write|create)(?:\s+or\s+(?:generate|write|create))?\s+(?:any\s+)?(?:code|content)\s+(?:for|in|without)\b", regex.I), 2.5),
+    (regex.compile(r"all\s+(?:(?:code|ai)\s+)?(?:changes|edits|modifications)\s+must\s+be\s+(?:human[- ]?)?reviewed\b", regex.I), 2.0),
+    (regex.compile(r"(?:do\s+not|don't|never|may\s+not)\s+use\s+(?:ai|copilot|cursor|windsurf|aider|llms?)\s+(?:for|to)\b", regex.I), 2.5),
     # --- disclose-ok ---
-    (re.compile(r"assisted[- ]by:\s*ai", re.I), -1.5),
-    (re.compile(r"disclos\w+[^.]{0,40}\b(?:is|are)\s+(?:required|expected)", re.I), -1.0),
-    (re.compile(r"ai[- ]assisted\s+contributions?\s+are\s+(?:welcome|allowed|accepted)", re.I), -3.0),
-    (re.compile(r"ai\s+(?:usage|assistance)\s+is\s+(?:welcome|allowed|fine|ok)\b", re.I), -3.0),
+    (regex.compile(r"assisted[- ]by:\s*ai", regex.I), -1.5),
+    (regex.compile(r"disclos\w+[^.]{0,40}\b(?:is|are)\s+(?:required|expected)\b", regex.I), -1.0),
+    (regex.compile(r"ai[- ]assisted\s+contributions?\s+are\s+(?:welcome|allowed|accepted)", regex.I), -3.0),
+    (regex.compile(r"ai\s+(?:usage|assistance)\s+is\s+(?:welcome|allowed|fine|ok)\b", regex.I), -3.0),
     # --- permissive ---
-    (re.compile(r"we\s+(?:warmly\s+)?welcome\s+ai[- ](?:assisted|generated)", re.I), -3.5),
-    (re.compile(r"feel\s+free\s+to\s+use\s+(?:claude|copilot|chatgpt|llms?|ai\s+tools)", re.I), -3.0),
-    (re.compile(r"agents?\s+are\s+welcome", re.I), -3.0),
+    (regex.compile(r"(?:\bwe\s+)?(?:warmly\s+)?welcome\s+ai[- ](?:assisted|generated)", regex.I), -3.5),
+    (regex.compile(r"feel\s+free\s+to\s+use\s+(?:claude|copilot|chatgpt|llms?|ai\s+tools)", regex.I), -3.0),
+    (regex.compile(r"agents?\s+are\s+welcome", regex.I), -3.0),
     # --- permissive (agent-guide patterns seen in the wild: openhuman etc.) ---
-    (re.compile(r"let\s+an\s+ai\s+coding\s+agent\s+guide\s+you", re.I), -3.0),
-    (re.compile(r"if\s+you\s+use\s+(?:claude\s+code|cursor|ampcode|codex).*?coding\s+agent", re.I | re.S), -3.0),
-    (re.compile(r"paste\s+this\s+prompt.*?(?:agents\.md|claude\.md)", re.I | re.S), -2.5),
+    (regex.compile(r"let\s+an\s+ai\s+coding\s+agent\s+guide\s+you", regex.I), -3.0),
+    (regex.compile(r"if\s+you\s+use\s+(?:claude\s+code|cursor|ampcode|codex).*?coding\s+agent", regex.I | regex.S), -3.0),
+    (regex.compile(r"paste\s+this\s+prompt.*?(?:agents\.md|claude\.md)", regex.I | regex.S), -2.5),
 ]
 
 RESTRICTIVE_THRESHOLD = 2.0
@@ -92,13 +100,17 @@ def _detect_policy_cached(text: str) -> Policy:
     matched_strong = False
 
     for pattern, weight in RULES:
-        match = pattern.search(text)
+        try:
+            match = pattern.search(text, timeout=REGEX_TIMEOUT_MS)
+        except TimeoutError:
+            # Pattern timed out — skip this rule rather than hanging
+            continue
         if not match:
             continue
         score += weight
         start = max(0, match.start() - 30)
         end = min(len(text), match.end() + 50)
-        snippet = re.sub(r"\s+", " ", text[start:end]).strip()
+        snippet = _re.sub(r"\s+", " ", text[start:end]).strip()
         evidence.append(f"[{weight:+.1f}] ...{snippet}...")
         if abs(weight) >= 3.0:
             matched_strong = True
@@ -134,8 +146,15 @@ def detect_policy(text: str) -> Policy:
     
     Returns a deep copy of the cached Policy to prevent mutation of shared state
     across concurrent callers (fixes #95, #80, #72).
+    
+    Input text is truncated to MAX_INPUT_LENGTH to prevent ReDoS on adversarial
+    input (fixes #113). Regex operations use the `regex` module with a timeout
+    to prevent catastrophic backtracking.
     """
     if not text or not text.strip():
         return Policy(Verdict.UNKNOWN, 0.0)
     import copy
+    # Truncate to prevent catastrophic backtracking on adversarial input
+    if len(text) > MAX_INPUT_LENGTH:
+        text = text[:MAX_INPUT_LENGTH]
     return copy.deepcopy(_detect_policy_cached(text))

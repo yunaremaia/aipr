@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aipr"
-version = "0.2.2"
+version = "0.2.3"
 description = "Read a repository's AI contribution policy before you (or your agent) contribute."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -19,7 +19,9 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Topic :: Software Development :: Version Control :: Git",
 ]
-dependencies = []
+dependencies = [
+    "regex>=2024.1.0",
+]
 
 [project.scripts]
 aipr = "aipr.cli:main"

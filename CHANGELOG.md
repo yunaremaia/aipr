@@ -2,6 +2,11 @@
 
 All notable changes to aipr will be documented in this file.
 
+## [0.2.3] - 2026-09-21
+
+### Security
+- Fixed ReDoS vulnerability in policy regex patterns (#113). The `[^.]{0,80}` quantifier caused catastrophic backtracking on adversarial input. Fix: switched from `re` to `regex` module with 500ms timeout per pattern, added 1MB input truncation.
+
 ## [0.2.2] - 2026-09-12
 
 ### Added
