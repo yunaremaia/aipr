@@ -45,10 +45,6 @@ CANDIDATE_FILES = [
     ".windsurfrules",
     ".aider.conf.yml",
     "README.md",
-    ".github/copilot-instructions.md",
-    ".cursorrules",
-    ".windsurfrules",
-    ".aider.conf.yml",
 ]
 
 ORG_FALLBACK_FILES = [".github/AI_POLICY.md", ".github/CONTRIBUTING.md"]
