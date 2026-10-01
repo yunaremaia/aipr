@@ -4,6 +4,7 @@
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/yunaremaia/aipr/blob/main/LICENSE)
 [![Release](https://img.shields.io/github/v/release/yunaremaia/aipr)](https://github.com/yunaremaia/aipr/releases/latest)
+[![PyPI](https://img.shields.io/pypi/v/aipr-py)](https://pypi.org/project/aipr-py/)
 ![Stars](https://img.shields.io/github/stars/yunaremaia/aipr)
 
 **AI Policy Read** - read an open-source repository's AI contribution policy
