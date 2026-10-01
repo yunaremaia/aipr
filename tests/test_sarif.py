@@ -316,3 +316,87 @@ def test_sarif_validates_against_official_schema(tmp_path):
     doc_without_root = to_sarif(results, version="0.2.2")
     jsonschema.validate(instance=doc_without_root, schema=schema)
 
+
+def test_sarif_message_text_uses_relpath_for_out_of_root_files(tmp_path):
+    """Verify message.text does not disclose absolute paths for out-of-root files (Issue #146)."""
+    from pathlib import Path
+
+    doc = to_sarif(
+        [
+            {
+                "verdict": "human_only",
+                "repo": "r",
+                "files": ["/home/alice/private/secret_creds.conf"],
+                "evidence": [],
+            }
+        ],
+        root=Path("/home/alice/repo"),
+    )
+    result = doc["runs"][0]["results"][0]
+    loc = result["locations"][0]["physicalLocation"]["artifactLocation"]
+    assert loc["uri"] == "secret_creds.conf"
+    assert loc["uriBaseId"] == "repoRoot"
+    # Ensure message.text uses relative/sanitized name, not the absolute path
+    msg = result["message"]["text"]
+    assert "Sources: secret_creds.conf" in msg
+    assert "/home/alice" not in msg
+    assert "secret_creds.conf" in msg
+
+
+def test_sarif_relative_path_traversal_outside_root(tmp_path):
+    """Verify relative paths traversing outside root (e.g. ../outside) are sanitized."""
+    doc = to_sarif(
+        [
+            {
+                "verdict": "human_only",
+                "repo": "r",
+                "files": ["../outside/secret.conf", "docs/policy.md"],
+                "evidence": [],
+            }
+        ],
+        root=tmp_path,
+    )
+    result = doc["runs"][0]["results"][0]
+    msg = result["message"]["text"]
+    assert "Sources: secret.conf, docs/policy.md" in msg
+    assert ".." not in msg
+
+    locations = result["locations"]
+    assert locations[0]["physicalLocation"]["artifactLocation"]["uri"] == "secret.conf"
+    assert locations[1]["physicalLocation"]["artifactLocation"]["uri"] == "docs/policy.md"
+
+
+def test_sarif_symlink_pointing_outside_root_demoted(tmp_path):
+    """Verify symlinks pointing outside root are demoted to link name without leaking outside target."""
+    repo = tmp_path / "repo"
+    outside = tmp_path / "outside"
+    repo.mkdir()
+    outside.mkdir()
+
+    target = outside / "secret_target.txt"
+    target.write_text("secret")
+
+    symlink = repo / "link_to_secret.txt"
+    symlink.symlink_to(target)
+
+    doc = to_sarif(
+        [
+            {
+                "verdict": "human_only",
+                "repo": "my-repo",
+                "files": [str(symlink)],
+                "evidence": [],
+            }
+        ],
+        root=repo,
+    )
+    result = doc["runs"][0]["results"][0]
+    loc = result["locations"][0]["physicalLocation"]["artifactLocation"]
+    assert loc["uri"] == "link_to_secret.txt"
+
+    msg = result["message"]["text"]
+    assert "Sources: link_to_secret.txt" in msg
+    assert "secret_target.txt" not in msg
+    assert str(outside) not in msg
+
+

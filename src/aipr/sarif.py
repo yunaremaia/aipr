@@ -69,12 +69,11 @@ def _relpath(file: str, root: Path | None) -> str:
         return file
 
     path = Path(file)
-    if not path.is_absolute():
-        return path.as_posix()
-
+    root_resolved = root.resolve()
     try:
-        return path.resolve().relative_to(root.resolve()).as_posix()
-    except ValueError:
+        resolved = (root / path).resolve() if not path.is_absolute() else path.resolve()
+        return resolved.relative_to(root_resolved).as_posix()
+    except (ValueError, RuntimeError):
         return path.name  # fallback avoids leaking paths outside the repo root
 
 
@@ -94,7 +93,8 @@ def _make_result(
         "level": level,
     }
     # repo for remote, source for local text mode
-    qualified_name = repo or source or "unknown"
+    clean_source = _relpath(str(source), root) if source else None
+    qualified_name = repo or clean_source or "unknown"
     locations: list[dict[str, Any]] = []
 
     file_targets = files or ([source] if source and not repo else [])
@@ -188,9 +188,11 @@ def to_sarif(
         if evidence:
             evidence_text = " | Evidence: " + "; ".join(evidence[:3])
         files = r.get("files", [])
-        source_text = f" Sources: {', '.join(files)}" if files else ""
+        shown = [_relpath(str(f), root_path) for f in files] if files else []
+        source_text = f" Sources: {', '.join(shown)}" if shown else ""
 
-        target = repo or source or "repository"
+        clean_source = _relpath(str(source), root_path) if source else None
+        target = repo or clean_source or "repository"
         if verdict == "human_only":
             message = (
                 f"Autonomous AI contributions NOT SAFE for {target}. "
