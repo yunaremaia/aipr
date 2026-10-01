@@ -258,17 +258,26 @@ def test_sarif_cli_text_mode_with_root(tmp_path, capsys):
 
 
 def test_sarif_validates_against_official_schema(tmp_path):
-    """Verify generated SARIF document validates against the SARIF 2.1.0 JSON schema."""
+    """Verify generated SARIF document validates against the SARIF 2.1.0 JSON schema.
+
+    The schema is vendored at ``tests/sarif-2.1.0.schema.json`` so this test needs
+    no network access and runs identically on every machine and CI leg.
+
+    ``jsonschema`` is required: if it is missing the test must SKIP loudly rather
+    than silently ``return``. A silent ``return`` here reported a green run while
+    asserting nothing at all, because CI installs only ``pytest``.
+    """
     import json
     from pathlib import Path
-    try:
-        import jsonschema
-    except ImportError:
-        return
 
-    schema_file = Path("/tmp/sarif-schema-2.1.0.json")
-    if not schema_file.exists():
-        return
+    import pytest
+
+    jsonschema = pytest.importorskip(
+        "jsonschema", reason="jsonschema is required to validate SARIF output"
+    )
+
+    schema_file = Path(__file__).parent / "sarif-2.1.0.schema.json"
+    assert schema_file.exists(), f"vendored SARIF schema missing: {schema_file}"
 
     schema = json.loads(schema_file.read_text())
     results = [
@@ -291,6 +300,14 @@ def test_sarif_validates_against_official_schema(tmp_path):
             "files": [],
         },
     ]
+    # Control: the schema must actually reject a malformed document. Without this,
+    # a validator that silently accepts everything would make the two assertions
+    # below pass forever while checking nothing.
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(
+            instance={"version": "2.1.0", "runs": [], "bogus": 1}, schema=schema
+        )
+
     # Validate with root
     doc_with_root = to_sarif(results, version="0.2.2", root=tmp_path)
     jsonschema.validate(instance=doc_with_root, schema=schema)
