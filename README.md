@@ -3,6 +3,7 @@
 [![CI](https://github.com/yunaremaia/aipr/actions/workflows/ci.yml/badge.svg)](https://github.com/yunaremaia/aipr/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/yunaremaia/aipr/blob/main/LICENSE)
+[![Release](https://img.shields.io/github/v/release/yunaremaia/aipr)](https://github.com/yunaremaia/aipr/releases/latest)
 ![Stars](https://img.shields.io/github/stars/yunaremaia/aipr)
 
 **AI Policy Read** - read an open-source repository's AI contribution policy
@@ -41,21 +42,35 @@ their quota.
 ## Install
 
 ```bash
-# 1. From PyPI
+# 1. From PyPI (recommended)
 pip install aipr-py
 
 # 2. Standalone from GitHub
 pip install git+https://github.com/yunaremaia/aipr.git
-# requires Python 3.10+; GH_TOKEN recommended (anonymous API calls rate-limit fast)
-export GH_TOKEN=ghp_xxx   # classic token with public repo read access
-
-# 3. As a GitHub CLI extension (recommended)
-gh extension install yunaremaia/aipr
 ```
 
-The `gh extension install` method is the easiest — after install, `gh aipr OWNER/REPO` works immediately.
+Requires Python 3.10+. `GH_TOKEN` is recommended (anonymous API calls
+rate-limit fast):
 
-No dependencies beyond the standard library. `pytest` only to develop.
+```bash
+export GH_TOKEN=ghp_xxx   # classic token with public repo read access
+```
+
+### As a GitHub CLI extension
+
+`gh extension install yunaremaia/aipr` does **not** work today: `gh` requires an
+extension manifest (`gh-<name>.json`) at the repository root, and this repo does
+not ship one. Install the package and link the `gh-aipr` entry point instead:
+
+```bash
+pip install aipr-py
+ln -s "$(command -v aipr)" ~/.local/bin/gh-aipr
+```
+
+After that, `gh aipr OWNER/REPO` works identically to `aipr OWNER/REPO`.
+
+One runtime dependency, `regex` (installed automatically); `pytest` only to
+develop.
 
 ## Usage
 
@@ -70,7 +85,7 @@ aipr --sarif OWNER/REPO    # SARIF 2.1.0 output for GitHub Code Scanning
 
 ### As a GitHub CLI extension
 
-After `gh extension install yunaremaia/aipr`, use `gh aipr` identically:
+After linking `gh-aipr` as described in [Install](#install), use `gh aipr` identically:
 
 ```bash
 gh aipr OWNER/REPO
