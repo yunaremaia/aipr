@@ -9,9 +9,13 @@ reported and advertised itself as 0.2.3.
 from __future__ import annotations
 
 import re
-import tomllib
 from importlib.metadata import version as metadata_version
 from pathlib import Path
+
+try:  # Python 3.11+
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10
+    import tomli as tomllib
 
 import pytest
 
