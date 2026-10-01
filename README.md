@@ -41,7 +41,7 @@ their quota.
 
 ```bash
 # 1. From PyPI
-pip install aipr
+pip install aipr-py
 
 # 2. Standalone from GitHub
 pip install git+https://github.com/yunaremaia/aipr.git
