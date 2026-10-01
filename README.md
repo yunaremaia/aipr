@@ -1,7 +1,8 @@
 # aipr
 
-[![PyPI version](https://img.shields.io/pypi/v/aipr.svg)](https://pypi.org/project/aipr/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/yunaremaia/aipr/actions/workflows/ci.yml/badge.svg)](https://github.com/yunaremaia/aipr/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/yunaremaia/aipr/blob/main/LICENSE)
 
 **AI Policy Read** - read an open-source repository's AI contribution policy
 before you (or your agent) contribute.
