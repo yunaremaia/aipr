@@ -23,7 +23,7 @@ runs:
       with:
         python-version: '3.12'
     - name: Install aipr
-      run: pip install "aipr>=0.1.0"
+      run: pip install "aipr-py>=0.1.0"
       shell: bash
     - name: Check AI policy
       id: aipr-check

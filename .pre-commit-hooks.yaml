@@ -4,5 +4,5 @@
   language: python
   files: '\.(py|js|ts|go|rs|java|rb|yml|yaml|toml|json|md|txt|sh)$'
   additional_dependencies:
-    - "aipr>=0.1.0"
+    - "aipr-py>=0.1.0"
   args: ["--no-informational"]
