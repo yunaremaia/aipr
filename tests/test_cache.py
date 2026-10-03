@@ -107,3 +107,49 @@ def test_fetch_gh_logs_warning_on_network_error(monkeypatch, caplog):
     assert result is None
     assert any("GitHub fetch failed" in rec.message for rec in caplog.records)
 
+
+def test_int_env_valid(monkeypatch):
+    from aipr.cache import _int_env
+    monkeypatch.setenv("TEST_INT_VAR", "42")
+    assert _int_env("TEST_INT_VAR", 10) == 42
+
+
+def test_int_env_unset(monkeypatch):
+    from aipr.cache import _int_env
+    monkeypatch.delenv("TEST_INT_VAR", raising=False)
+    assert _int_env("TEST_INT_VAR", 10) == 10
+
+
+def test_int_env_invalid_fallback_and_logs_warning(monkeypatch, caplog):
+    from aipr.cache import _int_env
+    monkeypatch.setenv("TEST_INT_VAR", "abc")
+    with caplog.at_level(logging.WARNING):
+        val = _int_env("TEST_INT_VAR", 100)
+    assert val == 100
+    assert any("TEST_INT_VAR='abc' is not an integer; using 100" in rec.message for rec in caplog.records)
+
+
+def test_invalid_cache_env_vars_cli_and_defaults(monkeypatch, caplog):
+    """Non-numeric AIPR_CACHE_TTL or AIPR_CACHE_SIZE fall back to defaults and CLI works."""
+    import importlib
+    import pytest
+    import aipr.cache
+    monkeypatch.setenv("AIPR_CACHE_TTL", "invalid_ttl")
+    monkeypatch.setenv("AIPR_CACHE_SIZE", "invalid_size")
+
+    try:
+        with caplog.at_level(logging.WARNING):
+            importlib.reload(aipr.cache)
+
+        assert aipr.cache.DEFAULT_CACHE_TTL == 86400
+        assert aipr.cache.MAX_CACHE_SIZE == 1024
+        assert any("AIPR_CACHE_TTL='invalid_ttl' is not an integer" in rec.message for rec in caplog.records)
+        assert any("AIPR_CACHE_SIZE='invalid_size' is not an integer" in rec.message for rec in caplog.records)
+
+        with pytest.raises(SystemExit) as excinfo:
+            main(["--version"])
+        assert excinfo.value.code == 0
+    finally:
+        monkeypatch.undo()
+        importlib.reload(aipr.cache)
+

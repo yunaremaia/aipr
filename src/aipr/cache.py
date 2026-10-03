@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import logging
 import os
 import threading
 import time
@@ -12,10 +13,23 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from aipr.detector import Policy
 
+logger = logging.getLogger(__name__)
+
+
+def _int_env(name: str, default: int) -> int:
+    val = os.environ.get(name)
+    if val is None:
+        return default
+    try:
+        return int(val)
+    except ValueError:
+        logger.warning("%s=%r is not an integer; using %d", name, val, default)
+        return default
+
 
 # Default TTL: 24 hours (in seconds)
-DEFAULT_CACHE_TTL = int(os.environ.get("AIPR_CACHE_TTL", "86400"))
-MAX_CACHE_SIZE = int(os.environ.get("AIPR_CACHE_SIZE", "1024"))
+DEFAULT_CACHE_TTL = _int_env("AIPR_CACHE_TTL", 86400)
+MAX_CACHE_SIZE = _int_env("AIPR_CACHE_SIZE", 1024)
 
 
 @dataclass
