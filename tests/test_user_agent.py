@@ -1,8 +1,7 @@
 """Tests for User-Agent header in GitHub API requests (fixes #96)."""
 
 from unittest.mock import patch, MagicMock
-import urllib.request
-import urllib.error
+
 from aipr.http import fetch_with_retry
 
 
@@ -37,6 +36,7 @@ def test_user_agent_without_token():
             mock_urlopen.return_value.__exit__ = MagicMock(return_value=False)
             
             result = fetch_with_retry("https://api.github.com/test")
+            assert result == "test"
             
             call_args = mock_urlopen.call_args
             req = call_args[0][0]

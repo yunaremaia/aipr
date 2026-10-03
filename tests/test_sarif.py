@@ -1,7 +1,5 @@
 """Tests for aipr SARIF output."""
 
-import json
-
 from aipr.sarif import to_sarif
 
 

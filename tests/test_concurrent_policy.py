@@ -1,8 +1,8 @@
 """Tests for thread-safety of detect_policy (fixes #95, #80, #72)."""
 
 import threading
-import copy
-from aipr.detector import detect_policy, Policy, Verdict
+
+from aipr.detector import detect_policy, Verdict
 
 
 def test_detect_policy_returns_deep_copy():

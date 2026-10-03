@@ -35,7 +35,7 @@ MAX_CACHE_SIZE = _int_env("AIPR_CACHE_SIZE", 1024)
 @dataclass
 class CacheEntry:
     ts: float
-    policy: object  # Policy dataclass
+    policy: Policy  # Policy dataclass
 
 
 class TTLCache:
@@ -53,7 +53,7 @@ class TTLCache:
         self._cache: dict[str, CacheEntry] = {}
         self._lock = threading.Lock()
 
-    def get(self, key: str) -> Optional[object]:
+    def get(self, key: str) -> Optional[Policy]:
         """Get a cached Policy, returning a deep copy.
         
         Returns None if key not found or entry expired.
@@ -67,7 +67,7 @@ class TTLCache:
                 return None
             return copy.deepcopy(entry.policy)
 
-    def put(self, key: str, policy: object) -> None:
+    def put(self, key: str, policy: Policy) -> None:
         """Store a Policy with current timestamp.
         
         Evicts oldest entries if cache exceeds maxsize.

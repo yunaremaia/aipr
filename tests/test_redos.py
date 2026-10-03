@@ -5,8 +5,6 @@ catastrophic backtracking (fixes #113).
 """
 
 import time
-import pytest
-import regex
 
 from aipr.detector import detect_policy, Verdict, MAX_INPUT_LENGTH
 
@@ -37,7 +35,7 @@ def test_redos_repeated_alternatives():
     """Repeated alternatives that almost match should not cause hang."""
     text = ("full ai generated content " * 1000)
     start = time.time()
-    result = detect_policy(text)
+    detect_policy(text)
     elapsed = time.time() - start
     assert elapsed < 1.0, f"Detection took {elapsed:.2f}s"
 
@@ -46,18 +44,22 @@ def test_redos_nested_quantifiers():
     """Test pattern with nested quantifiers doesn't hang."""
     text = "a" * 10000 + "!" * 10000 + "."
     start = time.time()
-    result = detect_policy(text)
+    detect_policy(text)
     elapsed = time.time() - start
     assert elapsed < 1.0
 
 
 def test_input_truncation_large_file():
     """Text over MAX_INPUT_LENGTH is truncated."""
-    huge = "a" * (MAX_INPUT_LENGTH + 10000)
+    marker = "AI should never be the main author of the PR."
+    huge = "a" * (MAX_INPUT_LENGTH + 10000) + marker
     start = time.time()
     result = detect_policy(huge)
     elapsed = time.time() - start
     assert elapsed < 1.0
+    # The marker lies past MAX_INPUT_LENGTH, so truncation must drop it and the
+    # verdict must stay UNKNOWN. Without truncation this would be HUMAN_ONLY.
+    assert result.verdict is Verdict.UNKNOWN, "input was not truncated to MAX_INPUT_LENGTH"
 
 
 def test_regex_timeout_caught_gracefully():

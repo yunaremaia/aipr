@@ -1,10 +1,11 @@
 """Tests for the on-disk policy cache."""
 
 import json
+import logging
 import time
 
 from aipr import cli as cli_mod
-from aipr.cli import main, fetch_policy_text, clear_cache
+from aipr.cli import main, fetch_policy_text, clear_cache, _cache_dir, _cache_get
 
 
 def test_cache_stores_and_reuses(tmp_path, monkeypatch):
@@ -61,28 +62,69 @@ def test_no_cache_flag_bypasses(tmp_path, monkeypatch):
 
 
 def test_corrupt_cache_entry_is_ignored(tmp_path, monkeypatch):
+    """A corrupt cache entry must be ignored, not raised, and must not be served.
+
+    The entry is written under the real cache key for "owner/repo-x"
+    (``repo.replace("/", "__")``), so ``_cache_get`` actually parses it. The
+    corrupted JSON must be swallowed by the try/except, the network fetch must
+    proceed, and the fetched result must overwrite the damaged entry.
+    """
     cache_dir = tmp_path / "cache"
     cache_dir.mkdir()
     monkeypatch.setenv("AIPR_CACHE_DIR", str(cache_dir))
-    (cache_dir / "bad.json").write_text("{corrupt")
-    # must not raise
-    files = fetch_policy_text("owner/repo-x") if False else None
+    entry = cache_dir / "owner__repo-x.json"
+    entry.write_text("{corrupt")
+    calls = []
+
+    def fake_fetch(url):
+        calls.append(url)
+        return "We warmly welcome AI-assisted contributions."
+
+    monkeypatch.setattr(cli_mod, "_fetch_gh", fake_fetch)
+
+    # Must not raise, and must not return the corrupt payload as cached data.
+    files = fetch_policy_text("owner/repo-x")
+    assert calls, "corrupt cache entry must be ignored so the fetch proceeds"
+    assert files, "the fetch must produce the policy files"
+    assert all(text == "We warmly welcome AI-assisted contributions." for _, text in files)
+    assert "AI_POLICY.md" in [name for name, _ in files]
+
+    # The damaged entry must have been replaced by a valid, re-readable one.
+    stored = json.loads(entry.read_text())
+    assert stored["files"] == [[name, text] for name, text in files]
     clear_cache()
 
 
 def test_clear_cache_removes_dir(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIPR_CACHE_DIR", str(tmp_path / "c"))
+    """clear_cache() must delete the cached entries so the next call refetches.
+
+    ``clear_cache`` unlinks every ``*.json`` entry under the cache directory
+    (it does not remove the directory itself), so the post-condition to assert
+    is that no cache entries survive and that a subsequent fetch is a miss.
+    """
+    cache_dir = tmp_path / "c"
+    monkeypatch.setenv("AIPR_CACHE_DIR", str(cache_dir))
     calls = []
+
     def fake_fetch(url):
         calls.append(url)
         return "test policy"
-    monkeypatch.setattr(cli_mod, "_fetch_gh", fake_fetch)
-    fetch_policy_text("o/r")
-    from aipr.cli import _cache_dir
-    assert (_cache_dir()).exists() or True
-    clear_cache()
 
-import logging
+    monkeypatch.setattr(cli_mod, "_fetch_gh", fake_fetch)
+
+    fetch_policy_text("o/r")
+    assert _cache_dir() == cache_dir, "test must exercise the patched cache dir"
+    assert list(_cache_dir().glob("*.json")), "a fetch must have populated the cache"
+
+    clear_cache()
+    assert not list(_cache_dir().glob("*.json")), "clear_cache() must delete every cache entry"
+    assert _cache_get("o__r") is None, "no cache entry may survive clear_cache()"
+
+    # The cleared cache must miss, so the next call goes back to the network.
+    n_before = len(calls)
+    fetch_policy_text("o/r")
+    assert len(calls) > n_before, "a cleared cache must not serve the previous entry"
+
 
 def test_cache_get_logs_warning_on_error(tmp_path, monkeypatch, caplog):
     """Cache read failure should log a warning."""
@@ -90,7 +132,6 @@ def test_cache_get_logs_warning_on_error(tmp_path, monkeypatch, caplog):
     cache_dir.mkdir()
     monkeypatch.setenv("AIPR_CACHE_DIR", str(cache_dir))
     (cache_dir / "corrupt.json").write_text("{not valid json")
-    from aipr.cli import _cache_get
     with caplog.at_level(logging.WARNING):
         result = _cache_get("corrupt")
     assert result is None

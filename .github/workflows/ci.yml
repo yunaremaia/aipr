@@ -6,6 +6,27 @@ on:
   pull_request:
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Same pinned-major ruff as the local dev install, so the gate cannot pass
+      # here and fail on a developer's machine because of a version difference.
+      - run: pip install "ruff>=0.16,<0.17"
+      # Rule selection lives in ruff.toml, not in this command: `ruff check`
+      # reads the committed config, so there is no second place to keep in sync.
+      # No path argument, so the gate covers src/ and tests/ alike. Narrowing it
+      # to src/ is exactly what would have missed the dead assertions in
+      # tests/test_cache.py that this gate was added for.
+      - name: Lint (pyflakes)
+        run: ruff check .
+      - name: Lint statistics
+        if: always()
+        run: ruff check . --select=F --statistics
+
   test:
     runs-on: ubuntu-latest
     strategy:

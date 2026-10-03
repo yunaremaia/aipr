@@ -1,7 +1,6 @@
 """Tests for the aipr CLI (no network)."""
 
 import json
-import subprocess
 
 import pytest
 from aipr.cli import _validate_repo, main, EXIT_USAGE

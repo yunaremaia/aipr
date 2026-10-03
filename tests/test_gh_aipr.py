@@ -4,8 +4,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 GH_AIPR = Path(__file__).parent.parent / "gh-aipr"
 
 

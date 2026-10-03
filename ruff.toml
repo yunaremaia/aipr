@@ -1,0 +1,32 @@
+# Ruff configuration for aipr.
+#
+# The lint gate is deliberately narrow: pyflakes (`F`) only. `F` catches the
+# class of defect that no runtime test reports on itself. Two examples that were
+# live in `tests/test_cache.py` until this gate existed:
+#
+#   * `files = fetch_policy_text(...) if False else None` — a dead `if False`
+#     guard meant the corrupt-cache-recovery test asserted nothing at all.
+#   * `assert (_cache_dir()).exists() or True` — an `or True` tail made the
+#     assertion incapable of failing.
+#
+# Neither is visible to coverage or to a passing suite: the test bodies ran and
+# reported success. `F841`/`F811` are the rules that reach that shape.
+#
+# `tests/` is NOT excluded. The sibling repos (taintrace, driftcheck) lint
+# `src/` only so a gate can never pressure a change into weakening a test. That
+# trade does not transfer here: both real defects above lived in `tests/`, and a
+# src-only gate would have caught neither. The gate's job in this repo is to keep
+# the tests honest as much as the source.
+#
+# Style rules (E501, I001, UP, B) are intentionally NOT enabled. Turning them on
+# forces a wide reformat that is hard to review, and a noisy first gate gets
+# disabled rather than fixed. Widen the selection deliberately, with the reformat
+# in its own commit.
+
+target-version = "py310"
+line-length = 100
+
+[lint]
+# Pinned explicitly so the gate cannot redden on a ruff upgrade with a different
+# default rule set.
+select = ["F"]

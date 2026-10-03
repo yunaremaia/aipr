@@ -2,7 +2,7 @@
 
 import threading
 import time
-import pytest
+
 from aipr.cache import TTLCache
 
 
