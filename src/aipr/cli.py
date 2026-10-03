@@ -20,6 +20,7 @@ import time
 from pathlib import Path
 
 from . import __version__
+from .cache import _int_env
 from .detector import Verdict, detect_policy
 from .http import fetch_with_retry, RateLimitError
 
@@ -66,10 +67,7 @@ def _cache_dir() -> Path:
 
 
 def _cache_ttl() -> int:
-    try:
-        return int(os.environ.get("AIPR_CACHE_TTL", "86400"))
-    except ValueError:
-        return 86400
+    return _int_env("AIPR_CACHE_TTL", 86400)
 
 
 def clear_cache() -> None:
