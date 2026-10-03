@@ -10,13 +10,37 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Yunare Maia", email = "yunare@gmail.com" }]
-keywords = ["ai-policy", "open-source", "contributing", "cli", "agents"]
+keywords = [
+    "ai-policy",
+    "open-source",
+    "contributing",
+    "cli",
+    "agents",
+    "ai",
+    "contribution",
+    "policy",
+    "agent",
+    "llm",
+    "claude",
+    "cursor",
+    "copilot",
+    "agents-md",
+    "contributing-guidelines",
+    "codeowners",
+    "maintainers",
+    "governance",
+    "pull-request",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Version Control :: Git",
 ]
 dependencies = [
@@ -34,6 +58,7 @@ aipr = "aipr.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/yunaremaia/aipr"
+Repository = "https://github.com/yunaremaia/aipr"
 Issues = "https://github.com/yunaremaia/aipr/issues"
 Funding = "https://github.com/sponsors/yunaremaia"
 Changelog = "https://github.com/yunaremaia/aipr/blob/main/CHANGELOG.md"
