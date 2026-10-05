@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aipr-py"
-version = "0.2.7"
+version = "0.2.8"
 description = "Read a repository's AI contribution policy before you (or your agent) contribute."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -53,7 +53,17 @@ test = [
 aipr = "aipr.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/yunaremaia/aipr"
+# `Homepage` and `Documentation` point at the GitHub Pages site built from
+# docs/ by the `docs`/`deploy-docs` jobs in .github/workflows/ci.yml, not at the
+# docs/ directory in this repository -- the directory is a source tree, not a
+# site. `Homepage` takes the site root and `Documentation` deep-links the first
+# guide, so the two labels do not advertise one URL twice; the repository is
+# still linked under `Source`, `Issues` and `Changelog`.
+#
+# Until 0.2.8 `Homepage` was the repository URL, which PyPI already renders
+# right next to it -- a link to the place the visitor had already arrived.
+Homepage = "https://yunaremaia.github.io/aipr/"
+Documentation = "https://yunaremaia.github.io/aipr/getting-started/"
 Source = "https://github.com/yunaremaia/aipr"
 Issues = "https://github.com/yunaremaia/aipr/issues"
 Funding = "https://github.com/sponsors/yunaremaia"
