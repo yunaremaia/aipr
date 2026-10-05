@@ -43,7 +43,8 @@ def test_authors_are_declared():
 
 
 @pytest.mark.parametrize(
-    "label", ["Homepage", "Issues", "Funding", "Changelog", "Source"]
+    "label",
+    ["Homepage", "Documentation", "Issues", "Funding", "Changelog", "Source"],
 )
 def test_project_url_is_present(label: str) -> None:
     urls = PROJECT.get("urls") or {}
