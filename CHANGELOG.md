@@ -11,6 +11,16 @@ All notable changes to aipr will be documented in this file.
 ### Added
 - A `lint` job in CI running `ruff check .` against a committed `ruff.toml` (pyflakes `F` rules), covering `src/` and `tests/`. Pre-existing `F401`/`F811`/`F841` violations were fixed rather than exempted, and `src/aipr/cache.py` now annotates its cache values as `Policy` instead of `object`.
 
+## [0.2.7] - 2026-10-05
+
+### Added
+- Python 3.14 support: the `Programming Language :: Python :: 3.14` classifier is declared and `3.14` joins the CI test matrix. Python 3.14 is the current stable release, so PyPI's `Programming Language :: Python ::` browse filter hid `aipr-py` from anyone checking compatibility against today's Python, even though `requires-python = ">=3.10"` already allowed installing it there.
+- `test_latest_python_classifier_is_in_the_ci_matrix` asserts the newest advertised version is actually exercised in CI, so a future release cycle cannot ship a classifier no test ever ran against.
+- `test_every_supported_python_version_is_advertised` now derives the expected version set from `requires-python` and the highest declared classifier instead of a hand-typed list. The hardcoded `{"3.10", "3.11", "3.12", "3.13"}` is what let 3.14 go missing unnoticed.
+
+### Verified
+- The full suite (141 tests) passes on CPython 3.14.7, matching the count on 3.10, 3.11, 3.12 and 3.13. No source change was needed for 3.14 compatibility.
+
 ## [0.2.6] - 2026-10-05
 
 ### Added

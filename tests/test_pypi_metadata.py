@@ -10,6 +10,7 @@ notices until the next release is cut.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 try:  # Python 3.11+
@@ -55,14 +56,52 @@ def test_project_url_is_present(label: str) -> None:
 
 def test_every_supported_python_version_is_advertised():
     """`requires-python` allows 3.10+ but the page listed no 3.x, so the
-    interpreter badge showed nothing for anyone checking compatibility."""
+    interpreter badge showed nothing for anyone checking compatibility.
+
+    The expected set is derived, not written out: a hand-typed list is what
+    let 3.14 go missing in the first place, and it rots again at 3.15. Every
+    minor version from the `requires-python` floor up to the highest declared
+    classifier must be advertised.
+    """
     declared = {
         c.rsplit(" ", 1)[-1]
         for c in PROJECT["classifiers"]
         if c.startswith("Programming Language :: Python :: 3.")
     }
-    missing = {"3.10", "3.11", "3.12", "3.13"} - declared
+    floor = int(PROJECT["requires-python"].removeprefix(">=").split(".")[1])
+    highest = max(int(v.split(".")[1]) for v in declared)
+    expected = {f"3.{minor}" for minor in range(floor, highest + 1)}
+    missing = expected - declared
     assert not missing, f"missing Python version classifiers: {sorted(missing)}"
+    assert f"3.{floor}" in declared, (
+        f"requires-python allows {PROJECT['requires-python']} but no classifier "
+        f"advertises 3.{floor}"
+    )
+
+
+def test_latest_python_classifier_is_in_the_ci_matrix():
+    """A classifier nobody tests is a claim, not support.
+
+    Python 3.14 shipped as stable while `requires-python` already allowed it,
+    so the package was installable on 3.14 with no test ever running there and
+    no classifier admitting it. Pinning the *newest* declared version to the CI
+    matrix is the check that catches the next release cycle; the older
+    versions may legitimately be sampled rather than all tested.
+    """
+    declared = [
+        c.rsplit(" ", 1)[-1]
+        for c in PROJECT["classifiers"]
+        if c.startswith("Programming Language :: Python :: 3.")
+    ]
+    newest = max(declared, key=lambda v: tuple(int(p) for p in v.split(".")))
+    ci_yml = (REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    matrix = re.search(r"python:\s*\[(.*?)\]", ci_yml)
+    assert matrix, "could not find a python-version matrix in .github/workflows/ci.yml"
+    tested = set(re.findall(r'"([0-9.]+)"', matrix.group(1)))
+    assert newest in tested, (
+        f"{newest} is advertised as supported but the CI matrix only tests "
+        f"{sorted(tested)}"
+    )
 
 
 def test_topic_classifiers_are_declared():
