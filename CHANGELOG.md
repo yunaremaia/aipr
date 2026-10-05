@@ -11,6 +11,16 @@ All notable changes to aipr will be documented in this file.
 ### Added
 - A `lint` job in CI running `ruff check .` against a committed `ruff.toml` (pyflakes `F` rules), covering `src/` and `tests/`. Pre-existing `F401`/`F811`/`F841` violations were fixed rather than exempted, and `src/aipr/cache.py` now annotates its cache values as `Policy` instead of `object`.
 
+## [0.2.6] - 2026-10-05
+
+### Added
+- Python version classifiers for 3.10 through 3.13 and four `Topic ::` classifiers. `requires-python` already allowed `>=3.10`, but the PyPI page advertised no interpreter versions and a single topic, so the package was invisible to the version and topic browse filters.
+- A `Source` project URL. The landing page offered no direct link to the repository it was built from.
+- Generic discovery keywords (`policy`, `contribution-policy`, `developer-tools`, `code-review`, `github`, `ai-agents`).
+
+### Changed
+- `tests/test_pypi_metadata.py` now gates the Python version classifiers, the topic classifiers and the `Source` URL, so a future release cannot silently drop them again.
+
 ## [0.2.3] - 2026-09-21
 
 ### Security

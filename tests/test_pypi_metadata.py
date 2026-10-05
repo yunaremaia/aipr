@@ -41,7 +41,9 @@ def test_authors_are_declared():
         assert author.get("name"), f"author without a name: {author!r}"
 
 
-@pytest.mark.parametrize("label", ["Homepage", "Issues", "Funding", "Changelog"])
+@pytest.mark.parametrize(
+    "label", ["Homepage", "Issues", "Funding", "Changelog", "Source"]
+)
 def test_project_url_is_present(label: str) -> None:
     urls = PROJECT.get("urls") or {}
     assert label in urls, (
@@ -49,6 +51,24 @@ def test_project_url_is_present(label: str) -> None:
         f"{sorted(urls) or 'no links at all'}"
     )
     assert urls[label].startswith("https://"), f"{label} must be an https URL, got {urls[label]!r}"
+
+
+def test_every_supported_python_version_is_advertised():
+    """`requires-python` allows 3.10+ but the page listed no 3.x, so the
+    interpreter badge showed nothing for anyone checking compatibility."""
+    declared = {
+        c.rsplit(" ", 1)[-1]
+        for c in PROJECT["classifiers"]
+        if c.startswith("Programming Language :: Python :: 3.")
+    }
+    missing = {"3.10", "3.11", "3.12", "3.13"} - declared
+    assert not missing, f"missing Python version classifiers: {sorted(missing)}"
+
+
+def test_topic_classifiers_are_declared():
+    """Topic classifiers are a primary browse filter on the PyPI index."""
+    topics = [c for c in PROJECT["classifiers"] if c.startswith("Topic ::")]
+    assert len(topics) >= 4, f"only {len(topics)} Topic classifiers: {topics}"
 
 
 def test_readme_shows_the_pypi_version_badge() -> None:
