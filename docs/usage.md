@@ -99,7 +99,7 @@ Presets:
 |---|---|
 | 0 | all inspected repos are autonomous-safe |
 | 1 | at least one repo is restricted or human-only |
-| 2 | at least one repo is unknown / no policy found (ranks worse than 1) |
+| 2 | at least one repo is unknown / no policy found (outranked by 1) |
 | 64 | usage error |
 
 ## How Classification Works

@@ -55,6 +55,18 @@ EXIT_UNSAFE = 1
 EXIT_UNKNOWN = 2
 EXIT_USAGE = 64
 
+# Severity ranking for batch aggregation: EXIT_UNSAFE (1) is the most restrictive
+# outcome an agent can encounter, so it must outrank EXIT_UNKNOWN (2), which in turn
+# outranks EXIT_OK (0). Deliberately distinct from exit code integers because
+# EXIT_UNKNOWN (2) is numerically greater than EXIT_UNSAFE (1). Do not simplify to
+# a plain max(): raw integer comparison (2 > 1) would cause unverified repos to mask
+# hard prohibitions.
+EXIT_SEVERITY = {
+    EXIT_UNSAFE: 2,
+    EXIT_UNKNOWN: 1,
+    EXIT_OK: 0,
+}
+
 # --- on-disk cache ----------------------------------------------------------
 # Each governance file fetch is cached under AIPR_CACHE_DIR (default:
 # ~/.cache/aipr) with a TTL (AIPR_CACHE_TTL seconds, default 86400 = 24h).
@@ -412,7 +424,7 @@ def main(argv: list[str] | None = None) -> int:
             return EXIT_UNKNOWN
         return EXIT_OK if r["autonomous_safe"] else EXIT_UNSAFE
 
-    worst = max(_exit_code(r) for r in results)
+    worst = max((_exit_code(r) for r in results), key=lambda c: EXIT_SEVERITY[c])
 
     if args.as_sarif:
         from .sarif import to_sarif

@@ -130,12 +130,13 @@ required by policy*, not *no obligations*.
 |---|---|
 | 0 | all inspected repos are autonomous-safe |
 | 1 | at least one repo is restricted or human-only |
-| 2 | at least one repo is unknown / no policy found (ranks worse than 1) |
+| 2 | at least one repo is unknown / no policy found (outranked by 1) |
 | 64 | usage error |
 
 Batch mode: `aipr owner/repo1 owner/repo2 ...` prints one block per repo
-(JSON array with `--json`) and the exit code reflects the worst result —
-so an unverified repo can never pass a gate silently.
+(JSON array with `--json`) and the exit code reflects the most restrictive
+result: `1` outranks `2`, so a repo that forbids AI is never masked by a repo
+with no policy at all, and an unverified repo can never pass a gate silently.
 
 Policy fetches are cached on disk for 24h (`~/.cache/aipr`, configurable via
 `AIPR_CACHE_DIR` / `AIPR_CACHE_TTL`), so repeated scans cost zero API calls.
